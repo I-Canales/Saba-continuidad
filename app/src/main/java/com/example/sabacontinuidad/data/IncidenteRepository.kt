@@ -1,60 +1,132 @@
 package com.example.sabacontinuidad.data
 
-import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import org.json.JSONArray
-import org.json.JSONObject
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.postgrest.from
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
-private val Context.dataStore by preferencesDataStore(name = "saba_incidentes")
+class IncidenteRepository {
+    private val supabase = SupabaseClientProvider.client
 
-class IncidenteRepository(private val context: Context) {
+    suspend fun obtenerIncidentes(): List<Incidente> {
+        val parkings = supabase
+            .from("parkings")
+            .select()
+            .decodeList<ParkingFila>()
 
-    private val clave = stringPreferencesKey("incidentes_json")
-
-    val incidentes: Flow<List<Incidente>> =
-        context.dataStore.data.map { prefs -> desdeJson(prefs[clave]) }
-
-    suspend fun guardar(incidente: Incidente) {
-        context.dataStore.edit { prefs ->
-            val lista = desdeJson(prefs[clave]).toMutableList()
-            lista.add(0, incidente)
-            prefs[clave] = aJson(lista)
-        }
-    }
-
-    private fun aJson(lista: List<Incidente>): String {
-        val arreglo = JSONArray()
-        lista.forEach { i ->
-            arreglo.put(
-                JSONObject()
-                    .put("id", i.id)
-                    .put("equipo", i.equipo)
-                    .put("area", i.area)
-                    .put("problema", i.problema)
-                    .put("descripcion", i.descripcion)
-                    .put("fecha", i.fecha)
+        if (parkings.isEmpty()) {
+            error(
+                "Tu usuario aún no está asignado a un parking. " +
+                        "Pide al administrador que te agregue en parking_miembros."
             )
         }
-        return arreglo.toString()
-    }
 
-    private fun desdeJson(texto: String?): List<Incidente> {
-        if (texto.isNullOrBlank()) return emptyList()
-        val arreglo = JSONArray(texto)
-        return List(arreglo.length()) { n ->
-            val o = arreglo.getJSONObject(n)
+        val filas = supabase
+            .from("incidentes")
+            .select()
+            .decodeList<IncidenteFila>()
+
+        if (filas.isEmpty()) return emptyList()
+
+        val equipos = supabase
+            .from("equipos")
+            .select()
+            .decodeList<EquipoFila>()
+            .associateBy { it.id }
+
+        return filas.map { fila ->
+            val equipo = equipos[fila.equipoId]
+
             Incidente(
-                id = o.getLong("id"),
-                equipo = o.getString("equipo"),
-                area = o.getString("area"),
-                problema = o.getString("problema"),
-                descripcion = o.getString("descripcion"),
-                fecha = o.getLong("fecha")
+                id = fila.id,
+                equipo = equipo?.let { "${it.codigo} · ${it.nombre}" }
+                    ?: fila.equipoId,
+                area = fila.area,
+                problema = fila.problema,
+                descripcion = fila.descripcion,
+                fecha = fila.creadoEn
             )
         }
+    }
+
+    suspend fun guardar(incidente: IncidenteBorrador) {
+        val usuarioId = supabase.auth.currentUserOrNull()?.id
+            ?: error("La sesión no está activa. Vuelve a iniciar sesión.")
+
+        val equiposCoincidentes = supabase
+            .from("equipos")
+            .select()
+            .decodeList<EquipoFila>()
+            .filter {
+                it.codigo.equals(
+                    incidente.codigoEquipo.trim(),
+                    ignoreCase = true
+                )
+            }
+
+        val equipo = when (equiposCoincidentes.size) {
+            0 -> error("No encontré ese código de equipo en tus parkings asignados.")
+            1 -> equiposCoincidentes.first()
+            else -> error("Ese código aparece en más de un parking.")
+        }
+
+        supabase
+            .from("incidentes")
+            .insert(
+                IncidenteNuevo(
+                    parkingId = equipo.parkingId,
+                    equipoId = equipo.id,
+                    reportadoPor = usuarioId,
+                    area = incidente.area,
+                    problema = incidente.problema,
+                    descripcion = incidente.descripcion.trim()
+                )
+            )
     }
 }
+
+data class IncidenteBorrador(
+    val codigoEquipo: String,
+    val area: String,
+    val problema: String,
+    val descripcion: String
+)
+
+@Serializable
+private data class ParkingFila(
+    val id: String
+)
+
+@Serializable
+private data class IncidenteFila(
+    val id: String,
+    @SerialName("equipo_id")
+    val equipoId: String,
+    val area: String,
+    val problema: String,
+    val descripcion: String,
+    @SerialName("creado_en")
+    val creadoEn: String
+)
+
+@Serializable
+private data class EquipoFila(
+    val id: String,
+    @SerialName("parking_id")
+    val parkingId: String,
+    val codigo: String,
+    val nombre: String
+)
+
+@Serializable
+private data class IncidenteNuevo(
+    @SerialName("parking_id")
+    val parkingId: String,
+    @SerialName("equipo_id")
+    val equipoId: String,
+    @SerialName("reportado_por")
+    val reportadoPor: String,
+    val area: String,
+    val problema: String,
+    val descripcion: String
+)

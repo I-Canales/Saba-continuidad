@@ -1,49 +1,45 @@
 package com.example.sabacontinuidad.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val EsquemaClaro = lightColorScheme(
+    primary = VerdeSaba,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFB7F0D8),
+    onPrimaryContainer = Color(0xFF002117),
+    background = FondoSaba,
+    onBackground = TextoSaba,
+    surface = Color.White,
+    onSurface = TextoSaba,
+    surfaceVariant = Color(0xFFDCE5E0),
+    outline = BordeSaba
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+private val EsquemaOscuro = darkColorScheme(
+    primary = Color(0xFF7FD6B6),
+    onPrimary = Color(0xFF00382A),
+    primaryContainer = Color(0xFF00513D),
+    onPrimaryContainer = Color(0xFFB7F0D8),
+    background = Color(0xFF0F1512),
+    onBackground = Color(0xFFDFE4E0),
+    surface = Color(0xFF0F1512),
+    onSurface = Color(0xFFDFE4E0),
+    surfaceVariant = Color(0xFF3F4945),
+    outline = Color(0xFF89938E)
 )
 
 @Composable
 fun SabaContinuidadTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) {
-                dynamicDarkColorScheme(context)
-            } else {
-                dynamicLightColorScheme(context)
-            }
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = if (darkTheme) EsquemaOscuro else EsquemaClaro,
         typography = Typography,
         content = content
     )
