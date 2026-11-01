@@ -1,6 +1,5 @@
 package com.example.sabacontinuidad.navigation
 
-import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -38,10 +37,11 @@ fun AppNavigation(
     val nav = rememberNavController()
     val estado by vm.estado.collectAsState()
     val incidentes by incidenteVm.incidentes.collectAsState()
-    val activity = LocalActivity.current
+    val errorCarga by incidenteVm.errorCarga.collectAsState()
 
     LaunchedEffect(estado.usuario) {
         if (estado.usuario != null) {
+            incidenteVm.cargarIncidentes()
             nav.navigate(Rutas.INICIO) {
                 popUpTo(Rutas.LOGIN) { inclusive = true }
             }
@@ -66,7 +66,7 @@ fun AppNavigation(
         composable(Rutas.LOGIN) {
             LoginScreen(
                 cargando = estado.cargando,
-                alPresionarMicrosoft = { activity?.let { vm.iniciarSesion(it) } },
+                alPresionarMicrosoft = { vm.iniciarSesion() },
                 alPresionarAyuda = { nav.navigate(Rutas.AYUDA) }
             )
         }
@@ -75,6 +75,7 @@ fun AppNavigation(
             InicioScreen(
                 usuario = estado.usuario ?: "",
                 incidentes = incidentes,
+                errorCarga = errorCarga,
                 alReportar = { nav.navigate(Rutas.REPORTE) },
                 alCerrarSesion = { vm.cerrarSesion() }
             )

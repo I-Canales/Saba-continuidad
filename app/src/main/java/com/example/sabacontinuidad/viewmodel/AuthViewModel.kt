@@ -17,7 +17,6 @@ data class AuthUiState(
 )
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
-
     private val repositorio = AuthRepository()
 
     private val _estado = MutableStateFlow(AuthUiState())
@@ -27,25 +26,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repositorio.estadoSesion.collect { sesion ->
                 when (sesion) {
-                    SessionStatus.Initializing -> {
-                        _estado.value = _estado.value.copy(cargando = true)
-                    }
-
+                    SessionStatus.Initializing -> _estado.value = _estado.value.copy(cargando = true)
                     is SessionStatus.Authenticated -> {
                         val usuario = sesion.session.user?.email
                             ?: sesion.session.user?.id
                             ?: "Usuario Microsoft"
-
-                        _estado.value = AuthUiState(
-                            cargando = false,
-                            usuario = usuario
-                        )
+                        _estado.value = AuthUiState(cargando = false, usuario = usuario)
                     }
-
                     is SessionStatus.NotAuthenticated -> {
                         _estado.value = AuthUiState(cargando = false)
                     }
-
                     is SessionStatus.RefreshFailure -> {
                         _estado.value = AuthUiState(
                             cargando = false,
@@ -59,40 +49,32 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun iniciarSesion() {
         if (_estado.value.cargando) return
-
-        _estado.value = _estado.value.copy(
-            cargando = true,
-            mensaje = null
-        )
-
+        _estado.value = _estado.value.copy(cargando = true, mensaje = null)
         viewModelScope.launch {
-            runCatching {
-                repositorio.iniciarSesionMicrosoft()
-            }.onFailure { error ->
-                _estado.value = _estado.value.copy(
-                    cargando = false,
-                    mensaje = error.message
-                        ?: "No se pudo iniciar sesión con Microsoft."
-                )
-            }.onSuccess {
-                // Microsoft abre el navegador; la sesión se actualiza al volver a la app.
-                if (_estado.value.usuario == null) {
-                    _estado.value = _estado.value.copy(cargando = false)
+            runCatching { repositorio.iniciarSesionMicrosoft() }
+                .onFailure { error ->
+                    _estado.value = _estado.value.copy(
+                        cargando = false,
+                        mensaje = error.message ?: "No se pudo iniciar sesión con Microsoft."
+                    )
                 }
-            }
+                .onSuccess {
+                    // El inicio continúa en el navegador; el deeplink actualizará el estado al volver.
+                    if (_estado.value.usuario == null) {
+                        _estado.value = _estado.value.copy(cargando = false)
+                    }
+                }
         }
     }
 
     fun cerrarSesion() {
         viewModelScope.launch {
-            runCatching {
-                repositorio.cerrarSesion()
-            }.onFailure { error ->
-                _estado.value = _estado.value.copy(
-                    mensaje = error.message
-                        ?: "No se pudo cerrar la sesión."
-                )
-            }
+            runCatching { repositorio.cerrarSesion() }
+                .onFailure { error ->
+                    _estado.value = _estado.value.copy(
+                        mensaje = error.message ?: "No se pudo cerrar la sesión."
+                    )
+                }
         }
     }
 
@@ -103,8 +85,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun reportarErrorLogin(mensaje: String?) {
         _estado.value = _estado.value.copy(
             cargando = false,
-            mensaje = mensaje
-                ?: "Microsoft no pudo completar el inicio de sesión."
+            mensaje = mensaje ?: "Microsoft no pudo completar el inicio de sesión."
         )
     }
 }

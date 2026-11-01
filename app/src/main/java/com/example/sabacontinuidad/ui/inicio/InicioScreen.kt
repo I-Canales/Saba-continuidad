@@ -24,15 +24,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.sabacontinuidad.data.Incidente
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InicioScreen(
     usuario: String,
     incidentes: List<Incidente>,
+    errorCarga: String?,
     alReportar: () -> Unit,
     alCerrarSesion: () -> Unit
 ) {
@@ -71,6 +69,21 @@ fun InicioScreen(
                         text = usuario,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            if (errorCarga != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text(
+                        text = errorCarga,
+                        modifier = Modifier.padding(12.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer
                     )
                 }
             }
@@ -124,8 +137,7 @@ fun InicioScreen(
 
 @Composable
 private fun TarjetaIncidente(incidente: Incidente, modifier: Modifier = Modifier) {
-    val fecha = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
-        .format(Date(incidente.fecha))
+    val fecha = incidente.fecha.replace('T', ' ').take(16)
 
     Card(modifier = modifier.fillMaxWidth()) {
         Column(

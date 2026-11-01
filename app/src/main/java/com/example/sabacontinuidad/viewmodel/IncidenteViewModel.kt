@@ -4,12 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sabacontinuidad.data.Incidente
+import com.example.sabacontinuidad.data.IncidenteBorrador
 import com.example.sabacontinuidad.data.IncidenteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -19,12 +18,13 @@ data class ReporteForm(
     val problema: String = "",
     val descripcion: String = "",
     val intentoEnviar: Boolean = false,
-    val avisoDuplicado: Boolean = false
+    val avisoDuplicado: Boolean = false,
+    val errorServidor: String? = null
 ) {
     val errorEquipo: String?
         get() = when {
-            equipo.isBlank() -> "Ingresa el equipo"
-            equipo.trim().length < 3 -> "Mínimo 3 caracteres"
+            equipo.isBlank() -> "Ingresa el código del equipo"
+            equipo.trim().length < 3 -> "El código debe tener al menos 3 caracteres"
             else -> null
         }
 
@@ -45,42 +45,66 @@ data class ReporteForm(
 }
 
 class IncidenteViewModel(application: Application) : AndroidViewModel(application) {
+    private val repositorio = IncidenteRepository()
 
-    private val repositorio = IncidenteRepository(application.applicationContext)
-
-    val incidentes: StateFlow<List<Incidente>> = repositorio.incidentes
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val _incidentes = MutableStateFlow<List<Incidente>>(emptyList())
+    val incidentes: StateFlow<List<Incidente>> = _incidentes.asStateFlow()
 
     private val _form = MutableStateFlow(ReporteForm())
     val form: StateFlow<ReporteForm> = _form.asStateFlow()
 
-    fun onEquipo(texto: String) = _form.update { it.copy(equipo = texto.take(40)) }
-    fun onArea(valor: String) = _form.update { it.copy(area = valor) }
-    fun onProblema(valor: String) = _form.update { it.copy(problema = valor) }
-    fun onDescripcion(texto: String) = _form.update { it.copy(descripcion = texto.take(300)) }
+    private val _cargando = MutableStateFlow(false)
+    val cargando: StateFlow<Boolean> = _cargando.asStateFlow()
+
+    private val _errorCarga = MutableStateFlow<String?>(null)
+    val errorCarga: StateFlow<String?> = _errorCarga.asStateFlow()
+
+    fun onEquipo(texto: String) = _form.update {
+        it.copy(equipo = texto.take(80), errorServidor = null)
+    }
+
+    fun onArea(valor: String) = _form.update { it.copy(area = valor, errorServidor = null) }
+    fun onProblema(valor: String) = _form.update { it.copy(problema = valor, errorServidor = null) }
+    fun onDescripcion(texto: String) = _form.update {
+        it.copy(descripcion = texto.take(300), errorServidor = null)
+    }
 
     fun agregarDictado(texto: String) = _form.update {
         it.copy(descripcion = "${it.descripcion} $texto".trim().take(300))
     }
 
-    fun enviar(alGuardar: () -> Unit) {
-        val f = _form.value
+    fun cargarIncidentes() {
+        viewModelScope.launch {
+            _cargando.value = true
+            runCatching { repositorio.obtenerIncidentes() }
+                .onSuccess {
+                    _incidentes.value = it
+                    _errorCarga.value = null
+                }
+                .onFailure { error ->
+                    _errorCarga.value = error.message ?: "No se pudieron cargar los incidentes."
+                }
+            _cargando.value = false
+        }
+    }
 
-        if (!f.valido) {
+    fun enviar(alGuardar: () -> Unit) {
+        val actual = _form.value
+        if (!actual.valido) {
             _form.update { it.copy(intentoEnviar = true) }
             return
         }
 
-        val hayDuplicado = incidentes.value.any {
-            it.equipo.equals(f.equipo.trim(), ignoreCase = true) && it.problema == f.problema
+        val duplicado = _incidentes.value.any {
+            it.equipo.startsWith(actual.equipo.trim(), ignoreCase = true) &&
+                it.problema == actual.problema
         }
-
-        if (hayDuplicado) {
+        if (duplicado) {
             _form.update { it.copy(avisoDuplicado = true) }
             return
         }
 
-        guardar(f, alGuardar)
+        guardar(actual, alGuardar)
     }
 
     fun confirmarDuplicado(alGuardar: () -> Unit) {
@@ -95,20 +119,33 @@ class IncidenteViewModel(application: Application) : AndroidViewModel(applicatio
         _form.value = ReporteForm()
     }
 
-    private fun guardar(f: ReporteForm, alGuardar: () -> Unit) {
+    private fun guardar(formulario: ReporteForm, alGuardar: () -> Unit) {
         viewModelScope.launch {
-            repositorio.guardar(
-                Incidente(
-                    id = System.currentTimeMillis(),
-                    equipo = f.equipo.trim(),
-                    area = f.area,
-                    problema = f.problema,
-                    descripcion = f.descripcion.trim(),
-                    fecha = System.currentTimeMillis()
+            _cargando.value = true
+            runCatching {
+                repositorio.guardar(
+                    IncidenteBorrador(
+                        codigoEquipo = formulario.equipo,
+                        area = formulario.area,
+                        problema = formulario.problema,
+                        descripcion = formulario.descripcion
+                    )
                 )
-            )
-            _form.value = ReporteForm()
-            alGuardar()
+                repositorio.obtenerIncidentes()
+            }.onSuccess { incidentesActualizados ->
+                _incidentes.value = incidentesActualizados
+                _form.value = ReporteForm()
+                alGuardar()
+            }.onFailure { error ->
+                _form.update {
+                    it.copy(
+                        intentoEnviar = true,
+                        avisoDuplicado = false,
+                        errorServidor = error.message ?: "No se pudo guardar el incidente."
+                    )
+                }
+            }
+            _cargando.value = false
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.example.sabacontinuidad
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,9 +15,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         manejarDeeplink(intent)
-
         setContent {
             SabaContinuidadTheme {
                 AppNavigation()
@@ -26,18 +23,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent) {
+    override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         manejarDeeplink(intent)
     }
 
-    private fun manejarDeeplink(intent: Intent) {
+    private fun manejarDeeplink(intent: android.content.Intent) {
         SupabaseClientProvider.client.handleDeeplinks(
             intent = intent,
-            onError = { error ->
-                authViewModel.reportarErrorLogin(error.message)
-            }
+            onError = { error -> authViewModel.reportarErrorLogin(error.message) }
         )
     }
 }

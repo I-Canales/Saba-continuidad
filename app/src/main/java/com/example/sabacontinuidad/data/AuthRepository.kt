@@ -13,6 +13,7 @@ class AuthRepository {
 
     suspend fun iniciarSesionMicrosoft() {
         auth.signInWith(Azure) {
+            // Supabase Auth necesita que Microsoft entregue un correo válido.
             scopes.add("email")
         }
     }

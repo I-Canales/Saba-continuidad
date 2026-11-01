@@ -55,6 +55,7 @@ fun ReporteScreen(
     alVolver: () -> Unit
 ) {
     val form by vm.form.collectAsState()
+    val cargando by vm.cargando.collectAsState()
     val contexto = LocalContext.current
 
     val dictado = rememberLauncherForActivityResult(
@@ -109,10 +110,24 @@ fun ReporteScreen(
                 }
             }
 
+            form.errorServidor?.let { error ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text(
+                        text = error,
+                        modifier = Modifier.padding(12.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = form.equipo,
                 onValueChange = vm::onEquipo,
-                label = { Text("Equipo") },
+                label = { Text("Código del equipo") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 isError = form.intentoEnviar && form.errorEquipo != null,
@@ -185,12 +200,13 @@ fun ReporteScreen(
 
             Button(
                 onClick = { vm.enviar(alGuardar = alVolver) },
+                enabled = !cargando,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Text("Guardar incidente")
+                Text(if (cargando) "Guardando…" else "Guardar incidente")
             }
         }
     }
