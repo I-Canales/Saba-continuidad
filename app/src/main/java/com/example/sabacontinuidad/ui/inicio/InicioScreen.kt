@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -31,6 +32,8 @@ fun InicioScreen(
     usuario: String,
     incidentes: List<Incidente>,
     errorCarga: String?,
+    aviso: String?,
+    alCerrarAviso: () -> Unit,
     alReportar: () -> Unit,
     alCerrarSesion: () -> Unit
 ) {
@@ -70,6 +73,25 @@ fun InicioScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
+                }
+            }
+
+            if (aviso != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = aviso,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        TextButton(onClick = alCerrarAviso) {
+                            Text("Entendido")
+                        }
+                    }
                 }
             }
 
@@ -144,6 +166,13 @@ private fun TarjetaIncidente(incidente: Incidente, modifier: Modifier = Modifier
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            if (incidente.pendiente) {
+                Text(
+                    text = "⏳ Pendiente de envío",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
             Text(
                 text = "${incidente.equipo} · ${incidente.area}",
                 style = MaterialTheme.typography.titleSmall

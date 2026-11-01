@@ -1,14 +1,87 @@
 package com.example.sabacontinuidad.data
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import com.example.sabacontinuidad.data.local.AppDatabase
+import com.example.sabacontinuidad.data.local.IncidenteEntity
+import com.example.sabacontinuidad.data.local.aEntidad
+import com.example.sabacontinuidad.data.local.aModelo
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.LocalDateTime
+import java.util.UUID
 
-class IncidenteRepository {
+enum class ResultadoGuardado { ENVIADO, PENDIENTE }
+
+class IncidenteRepository(context: Context) {
+    private val contexto = context.applicationContext
     private val supabase = SupabaseClientProvider.client
+    private val dao = AppDatabase.obtener(contexto).incidenteDao()
 
-    suspend fun obtenerIncidentes(): List<Incidente> {
+    /** Lo que ve la app: siempre sale de la base local (Room). */
+    val incidentes: Flow<List<Incidente>> =
+        dao.observarTodos().map { lista -> lista.map { it.aModelo() } }
+
+    /** Reenvía los pendientes y descarga lo último de Supabase. Devuelve false si no hay internet. */
+    suspend fun sincronizar(): Boolean {
+        if (!hayInternet()) return false
+        reenviarPendientes()
+        descargarYGuardar()
+        return true
+    }
+
+    suspend fun guardar(borrador: IncidenteBorrador): ResultadoGuardado {
+        if (!hayInternet()) {
+            dao.upsert(
+                IncidenteEntity(
+                    id = "local-${UUID.randomUUID()}",
+                    equipo = borrador.codigoEquipo.trim(),
+                    area = borrador.area,
+                    problema = borrador.problema,
+                    descripcion = borrador.descripcion.trim(),
+                    fecha = LocalDateTime.now().toString(),
+                    pendiente = true,
+                    codigoEquipo = borrador.codigoEquipo.trim()
+                )
+            )
+            return ResultadoGuardado.PENDIENTE
+        }
+
+        enviarARemoto(borrador)
+        runCatching { descargarYGuardar() }
+        return ResultadoGuardado.ENVIADO
+    }
+
+    suspend fun limpiarCache() {
+        dao.borrarEnviados()
+    }
+
+    private suspend fun reenviarPendientes() {
+        dao.pendientes().forEach { pendiente ->
+            runCatching {
+                enviarARemoto(
+                    IncidenteBorrador(
+                        codigoEquipo = pendiente.codigoEquipo,
+                        area = pendiente.area,
+                        problema = pendiente.problema,
+                        descripcion = pendiente.descripcion
+                    )
+                )
+            }.onSuccess { dao.borrar(pendiente.id) }
+        }
+    }
+
+    private suspend fun descargarYGuardar() {
+        val remotos = descargar()
+        dao.reemplazarEnviados(remotos.map { it.aEntidad() })
+    }
+
+    private suspend fun descargar(): List<Incidente> {
         val parkingsAsignados = supabase.from("parkings")
             .select()
             .decodeList<ParkingFila>()
@@ -40,7 +113,7 @@ class IncidenteRepository {
         }
     }
 
-    suspend fun guardar(incidente: IncidenteBorrador) {
+    private suspend fun enviarARemoto(incidente: IncidenteBorrador) {
         val usuarioId = supabase.auth.currentUserOrNull()?.id
             ?: error("La sesión de Supabase no está activa. Vuelve a iniciar sesión.")
 
@@ -66,6 +139,13 @@ class IncidenteRepository {
                 descripcion = incidente.descripcion.trim()
             )
         )
+    }
+
+    private fun hayInternet(): Boolean {
+        val cm = contexto.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val capacidades = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return capacidades.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                capacidades.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 }
 

@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.sabacontinuidad.data.Incidente
 import com.example.sabacontinuidad.data.IncidenteBorrador
 import com.example.sabacontinuidad.data.IncidenteRepository
+import com.example.sabacontinuidad.data.ResultadoGuardado
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -45,10 +48,10 @@ data class ReporteForm(
 }
 
 class IncidenteViewModel(application: Application) : AndroidViewModel(application) {
-    private val repositorio = IncidenteRepository()
+    private val repositorio = IncidenteRepository(application.applicationContext)
 
-    private val _incidentes = MutableStateFlow<List<Incidente>>(emptyList())
-    val incidentes: StateFlow<List<Incidente>> = _incidentes.asStateFlow()
+    val incidentes: StateFlow<List<Incidente>> = repositorio.incidentes
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _form = MutableStateFlow(ReporteForm())
     val form: StateFlow<ReporteForm> = _form.asStateFlow()
@@ -58,6 +61,9 @@ class IncidenteViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _errorCarga = MutableStateFlow<String?>(null)
     val errorCarga: StateFlow<String?> = _errorCarga.asStateFlow()
+
+    private val _aviso = MutableStateFlow<String?>(null)
+    val aviso: StateFlow<String?> = _aviso.asStateFlow()
 
     fun onEquipo(texto: String) = _form.update {
         it.copy(equipo = texto.take(80), errorServidor = null)
@@ -76,10 +82,12 @@ class IncidenteViewModel(application: Application) : AndroidViewModel(applicatio
     fun cargarIncidentes() {
         viewModelScope.launch {
             _cargando.value = true
-            runCatching { repositorio.obtenerIncidentes() }
-                .onSuccess {
-                    _incidentes.value = it
+            runCatching { repositorio.sincronizar() }
+                .onSuccess { sincronizado ->
                     _errorCarga.value = null
+                    if (!sincronizado) {
+                        _aviso.value = "Sin conexión: mostrando los datos guardados en el celular."
+                    }
                 }
                 .onFailure { error ->
                     _errorCarga.value = error.message ?: "No se pudieron cargar los incidentes."
@@ -95,9 +103,9 @@ class IncidenteViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
-        val duplicado = _incidentes.value.any {
+        val duplicado = incidentes.value.any {
             it.equipo.startsWith(actual.equipo.trim(), ignoreCase = true) &&
-                it.problema == actual.problema
+                    it.problema == actual.problema
         }
         if (duplicado) {
             _form.update { it.copy(avisoDuplicado = true) }
@@ -119,6 +127,14 @@ class IncidenteViewModel(application: Application) : AndroidViewModel(applicatio
         _form.value = ReporteForm()
     }
 
+    fun cerrarAviso() {
+        _aviso.value = null
+    }
+
+    fun limpiarCache() {
+        viewModelScope.launch { runCatching { repositorio.limpiarCache() } }
+    }
+
     private fun guardar(formulario: ReporteForm, alGuardar: () -> Unit) {
         viewModelScope.launch {
             _cargando.value = true
@@ -131,9 +147,10 @@ class IncidenteViewModel(application: Application) : AndroidViewModel(applicatio
                         descripcion = formulario.descripcion
                     )
                 )
-                repositorio.obtenerIncidentes()
-            }.onSuccess { incidentesActualizados ->
-                _incidentes.value = incidentesActualizados
+            }.onSuccess { resultado ->
+                if (resultado == ResultadoGuardado.PENDIENTE) {
+                    _aviso.value = "Sin conexión: el incidente quedó pendiente y se enviará al reconectar."
+                }
                 _form.value = ReporteForm()
                 alGuardar()
             }.onFailure { error ->

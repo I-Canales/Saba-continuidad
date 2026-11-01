@@ -38,6 +38,7 @@ fun AppNavigation(
     val estado by vm.estado.collectAsState()
     val incidentes by incidenteVm.incidentes.collectAsState()
     val errorCarga by incidenteVm.errorCarga.collectAsState()
+    val aviso by incidenteVm.aviso.collectAsState()
 
     LaunchedEffect(estado.usuario) {
         if (estado.usuario != null) {
@@ -76,8 +77,13 @@ fun AppNavigation(
                 usuario = estado.usuario ?: "",
                 incidentes = incidentes,
                 errorCarga = errorCarga,
+                aviso = aviso,
+                alCerrarAviso = { incidenteVm.cerrarAviso() },
                 alReportar = { nav.navigate(Rutas.REPORTE) },
-                alCerrarSesion = { vm.cerrarSesion() }
+                alCerrarSesion = {
+                    incidenteVm.limpiarCache()
+                    vm.cerrarSesion()
+                }
             )
         }
 
