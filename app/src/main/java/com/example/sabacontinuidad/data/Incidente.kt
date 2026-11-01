@@ -6,5 +6,6 @@ data class Incidente(
     val area: String,
     val problema: String,
     val descripcion: String,
-    val fecha: String
+    val fecha: String,
+    val pendiente: Boolean = false
 )
