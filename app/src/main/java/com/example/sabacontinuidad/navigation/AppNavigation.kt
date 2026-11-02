@@ -16,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.sabacontinuidad.ui.ayuda.AyudaAccesoScreen
+import com.example.sabacontinuidad.ui.escaner.EscanerQrScreen
 import com.example.sabacontinuidad.ui.inicio.InicioScreen
 import com.example.sabacontinuidad.ui.login.LoginScreen
 import com.example.sabacontinuidad.ui.reporte.ReporteScreen
@@ -27,6 +28,7 @@ object Rutas {
     const val INICIO = "inicio"
     const val AYUDA = "ayuda"
     const val REPORTE = "reporte"
+    const val ESCANER = "escaner"
 }
 
 @Composable
@@ -47,7 +49,8 @@ fun AppNavigation(
                 popUpTo(Rutas.LOGIN) { inclusive = true }
             }
         } else if (nav.currentDestination?.route == Rutas.INICIO ||
-            nav.currentDestination?.route == Rutas.REPORTE
+            nav.currentDestination?.route == Rutas.REPORTE ||
+            nav.currentDestination?.route == Rutas.ESCANER
         ) {
             nav.navigate(Rutas.LOGIN) {
                 popUpTo(0) { inclusive = true }
@@ -90,6 +93,17 @@ fun AppNavigation(
         composable(Rutas.REPORTE) {
             ReporteScreen(
                 vm = incidenteVm,
+                alEscanear = { nav.navigate(Rutas.ESCANER) },
+                alVolver = { nav.popBackStack() }
+            )
+        }
+
+        composable(Rutas.ESCANER) {
+            EscanerQrScreen(
+                alLeerCodigo = { codigo ->
+                    incidenteVm.onEquipo(codigo)
+                    nav.popBackStack()
+                },
                 alVolver = { nav.popBackStack() }
             )
         }
