@@ -209,7 +209,7 @@ fun ReporteScreen(
                     }
                     try {
                         dictado.launch(intent)
-                    } catch (_: ActivityNotFoundException) {
+                    } catch (e: ActivityNotFoundException) {
                         Toast.makeText(
                             contexto,
                             "Este dispositivo no tiene dictado por voz.",

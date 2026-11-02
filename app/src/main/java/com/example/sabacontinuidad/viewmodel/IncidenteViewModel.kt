@@ -103,8 +103,9 @@ class IncidenteViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
+        // Compara el código exacto del equipo (lo que va antes del " · ").
         val duplicado = incidentes.value.any {
-            it.equipo.startsWith(actual.equipo.trim(), ignoreCase = true) &&
+            it.equipo.substringBefore(" ·").trim().equals(actual.equipo.trim(), ignoreCase = true) &&
                     it.problema == actual.problema
         }
         if (duplicado) {
