@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -36,6 +39,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.example.sabacontinuidad.viewmodel.IncidenteViewModel
 
@@ -52,11 +58,13 @@ private val PROBLEMAS = listOf(
 @Composable
 fun ReporteScreen(
     vm: IncidenteViewModel,
+    alEscanear: () -> Unit,
     alVolver: () -> Unit
 ) {
     val form by vm.form.collectAsState()
     val cargando by vm.cargando.collectAsState()
     val contexto = LocalContext.current
+    val foco = LocalFocusManager.current
 
     val dictado = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -91,6 +99,7 @@ fun ReporteScreen(
         Column(
             modifier = Modifier
                 .padding(padding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -130,12 +139,27 @@ fun ReporteScreen(
                 label = { Text("Código del equipo") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Characters,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { foco.clearFocus() }),
                 isError = form.intentoEnviar && form.errorEquipo != null,
                 supportingText = {
                     val error = form.errorEquipo
                     if (form.intentoEnviar && error != null) Text(error)
                 }
             )
+
+            OutlinedButton(
+                onClick = alEscanear,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Escanear QR del equipo")
+            }
 
             GrupoChips(
                 titulo = "Área de atención",
@@ -159,6 +183,9 @@ fun ReporteScreen(
                 label = { Text("Descripción") },
                 minLines = 4,
                 modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences
+                ),
                 isError = form.intentoEnviar && form.errorDescripcion != null,
                 supportingText = {
                     val error = form.errorDescripcion
