@@ -66,7 +66,6 @@ fun RevisionReporteScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(horizontal = 16.dp)
     ) {
-        // Título original: 48 dp de altura.
         Row(
             modifier = Modifier.fillMaxWidth().height(48.dp),
             verticalAlignment = Alignment.CenterVertically
