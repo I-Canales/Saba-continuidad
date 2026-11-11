@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.sabacontinuidad.viewmodel.IncidenteViewModel
 
-// Colores de S05, tomados de los estilos del prototipo de Figma.
+
 private val S05Verde = Color(0xFF0E5A47)
 private val S05VerdeSuave = Color(0xFFE2F1EA)
 private val S05Texto = Color(0xFF14231E)
@@ -52,9 +52,6 @@ private val S05Rojo = Color(0xFFB62222)
 
 private val opcionesProblemaS05 = listOf("No imprime comprobante", "No acepta tarjeta", "Otro")
 
-/** S05: segunda pantalla del flujo. Reutiliza el ViewModel existente.
- * IMPORTANTE: la foto y el departamento son de interfaz, NO se guardan en Supabase todavía.
- */
 @Composable
 fun ProblemaScreen(
     vm: IncidenteViewModel,
@@ -82,7 +79,6 @@ fun ProblemaScreen(
                 ?.firstOrNull()?.let(vm::agregarDictado)
         }
     }
-    // El código se conserva desde S04 en el formulario existente.
     val codigo = form.equipo.ifBlank { "Sin seleccionar" }
     val barrera = codigo.startsWith("SAL-", ignoreCase = true)
     val nombreEquipo = when (codigo.uppercase()) {
@@ -105,7 +101,6 @@ fun ProblemaScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
-            // Encabezado original de Figma.
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(36.dp).clip(CircleShape).clickable(onClick = alVolver),
                     contentAlignment = Alignment.Center) {
@@ -179,7 +174,6 @@ fun ProblemaScreen(
             }
             Spacer(Modifier.height(7.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // La foto del kiosco de Figma está construida con figuras, no con un recurso externo.
                 if (fotoUri != null || mostrarFotoEjemplo) {
                     Box(Modifier.weight(1.26f).height(96.dp).clip(RoundedCornerShape(8.dp))) {
                         if (fotoUri != null) {
@@ -280,7 +274,6 @@ fun ProblemaScreen(
                 .background(S05Verde, RoundedCornerShape(8.dp))
                 .clip(RoundedCornerShape(8.dp))
                 .clickable {
-                    // Los campos necesarios para guardar se completan en el reporte actual.
                     if (form.problema.isBlank()) vm.onProblema("No imprime comprobante")
                     alContinuar()
                 }, contentAlignment = Alignment.Center
