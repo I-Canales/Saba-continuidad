@@ -42,11 +42,7 @@ private val equiposDemo = listOf(
     EquipoOpcion("Barrera de salida 2", "SAL-02", "Salida", barrera = true)
 )
 
-/**
- * S04 · Reportar · 1 Equipo.
- * Esta vista replica la pantalla de Figma y no modifica la base de datos.
- * El listado es visual/de demostración; más adelante puede alimentarse de Supabase.
- */
+
 @Composable
 fun SeleccionEquipoScreen(
     codigoActual: String,
@@ -58,7 +54,6 @@ fun SeleccionEquipoScreen(
     var menuParking by remember { mutableStateOf(false) }
     var parking by remember { mutableStateOf("Demo Centro") }
 
-    // Respeta el estado de la selección al volver desde la siguiente pantalla.
     LaunchedEffect(codigoActual) {
         if (codigoActual.isBlank()) alElegirEquipo("CAJ-04")
     }
@@ -78,7 +73,6 @@ fun SeleccionEquipoScreen(
             .background(Fondo)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        // Barra de título, similar al encabezado de la pantalla Figma.
         Row(
             Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 24.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -97,7 +91,6 @@ fun SeleccionEquipoScreen(
             )
         }
 
-        // Tres pasos con el mismo estado visual de S04.
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 52.dp, end = 52.dp, top = 5.dp, bottom = 15.dp),
             horizontalArrangement = Arrangement.Center,
