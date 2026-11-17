@@ -1,0 +1,962 @@
+diff --git a/SUPABASE_SETUP.md b/SUPABASE_SETUP.md
+new file mode 100644
+index 0000000..f0b7982
+--- /dev/null
++++ b/SUPABASE_SETUP.md
+@@ -0,0 +1,40 @@
++# Conectar Saba Continuidad con Supabase
++
++La app usa Supabase Auth para iniciar sesión con Microsoft y obtener el JWT que requieren las políticas RLS. El botón de Microsoft ya no usa la configuración MSAL local: el flujo de Microsoft pasa por Supabase Auth, que crea la sesión de la base de datos. Si la organización exige MFA, Microsoft Entra solicita la verificación según sus políticas.
++
++## 1. Configuración del cliente Android
++
++La URL y la clave **publishable** están configuradas en `SupabaseClientProvider.kt`. La publishable key está diseñada para clientes móviles; el acceso a los datos sigue limitado por RLS. No pongas una clave `service_role` ni `sb_secret` en la aplicación.
++
++## 2. Activar Microsoft en Supabase Auth
++
++1. En Microsoft Entra, registra una aplicación para el flujo web/OAuth de Supabase. Agrega como URI de redirección:
++
++   ```text
++   https://jgpskxaixuxkblhfzqbs.supabase.co/auth/v1/callback
++   ```
++
++2. Crea un secreto de cliente en Entra y copia su **Value**.
++3. En Supabase → **Authentication → Sign In / Providers → Azure**, habilita el proveedor y pega el Client ID y el Client Secret. Configura el tenant de la organización si el acceso debe limitarse a sus cuentas.
++4. En Supabase → **Authentication → URL Configuration → Redirect URLs**, agrega:
++
++   ```text
++   com.example.sabacontinuidad://auth
++   ```
++
++El secreto de Entra se guarda solo en la configuración del proveedor en Supabase; no se copia al proyecto Android. La aplicación pide el scope `email`, requerido por el proveedor Azure de Supabase.
++
++## 3. Asignar usuario, parking y equipo
++
++La base existente protege los registros mediante RLS y `parking_miembros`. Un usuario autenticado solo ve parkings/equipos donde tiene una asignación activa.
++
++1. Ejecuta la app y completa el primer inicio de sesión con Microsoft.
++2. En Supabase → **Authentication → Users**, copia el UUID del usuario creado.
++3. En **Table Editor**, crea el parking y el equipo si aún no existen.
++4. Crea la fila de asignación en `parking_miembros` con el `parking_id`, el UUID en `usuario_id`, un `rol` (`trabajador` o `supervisor`) y `activo = true`.
++
++Sin esa asignación, la app se autenticará correctamente, pero RLS ocultará los parkings y equipos y no permitirá insertar incidentes. No se agregó una política abierta para evitar que cualquier usuario pueda asignarse a sí mismo.
++
++## Qué conecta esta versión
++
++El login y el registro/listado de incidentes usan Supabase. El formulario resuelve el código ingresado contra `equipos`, y el servidor asigna el parking, el usuario reportante y la fecha. Las otras tablas del esquema (turnos, mantenimientos, procedimientos, archivos, etc.) aún no están conectadas porque esta versión de la app todavía no tiene esas pantallas.
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 7b329f4..bcaeb27 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -1,32 +1,11 @@
+-import java.util.Properties
+-
+ plugins {
+     alias(libs.plugins.android.application)
+     alias(libs.plugins.kotlin.compose)
+     alias(libs.plugins.kotlin.serialization)
+ }
+ 
+-val localProperties = Properties().apply {
+-    val file = rootProject.file("local.properties")
+-    if (file.exists()) {
+-        file.inputStream().use { input ->
+-            load(input)
+-        }
+-    }
+-}
+-
+-fun buildConfigString(name: String, fallback: String = ""): String {
+-    val value = localProperties
+-        .getProperty(name, fallback)
+-        .replace("\\", "\\\\")
+-        .replace("\"", "\\\"")
+-
+-    return "\"$value\""
+-}
+-
+ android {
+     namespace = "com.example.sabacontinuidad"
+-
+     compileSdk {
+         version = release(37)
+     }
+@@ -38,52 +17,28 @@ android {
+         versionCode = 1
+         versionName = "1.0"
+ 
+-        buildConfigField(
+-            "String",
+-            "SUPABASE_URL",
+-            buildConfigString(
+-                "SUPABASE_URL",
+-                "https://jgpskxaixuxkblhfzqbs.supabase.co"
+-            )
+-        )
+-
+-        buildConfigField(
+-            "String",
+-            "SUPABASE_PUBLISHABLE_KEY",
+-            buildConfigString("SUPABASE_PUBLISHABLE_KEY")
+-        )
+-
+-        testInstrumentationRunner =
+-            "androidx.test.runner.AndroidJUnitRunner"
++        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+     buildTypes {
+         release {
+             optimization {
+                 enable = true
+-                packageScope = setOf(
+-                    "androidx.**",
+-                    "kotlin.**",
+-                    "kotlinx.**"
+-                )
++                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
+             }
+         }
+     }
+-
+     compileOptions {
+         sourceCompatibility = JavaVersion.VERSION_11
+         targetCompatibility = JavaVersion.VERSION_11
+     }
+-
+     buildFeatures {
+         compose = true
+-        buildConfig = true
+     }
+ }
+ 
+ dependencies {
+     val composeBom = platform(libs.androidx.compose.bom)
+-
+     implementation(composeBom)
+     androidTestImplementation(composeBom)
+ 
+@@ -94,7 +49,6 @@ dependencies {
+     implementation(libs.supabase.auth)
+     implementation(libs.supabase.postgrest)
+     implementation(libs.ktor.client.android)
+-
+     implementation(libs.androidx.activity.compose)
+     implementation(libs.androidx.compose.material3)
+     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
+@@ -103,13 +57,10 @@ dependencies {
+     implementation(libs.androidx.compose.ui.tooling.preview)
+     implementation(libs.androidx.core.ktx)
+     implementation(libs.androidx.lifecycle.runtime.ktx)
+-
+     testImplementation(libs.junit)
+-
+     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+     androidTestImplementation(libs.androidx.espresso.core)
+     androidTestImplementation(libs.androidx.junit)
+-
+     debugImplementation(libs.androidx.compose.ui.test.manifest)
+     debugImplementation(libs.androidx.compose.ui.tooling)
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 658881f..ee43266 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -14,22 +14,17 @@
+             android:name=".MainActivity"
+             android:exported="true"
+             android:launchMode="singleTop">
+-
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN" />
+                 <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
+-
+             <intent-filter>
+                 <action android:name="android.intent.action.VIEW" />
+                 <category android:name="android.intent.category.DEFAULT" />
+                 <category android:name="android.intent.category.BROWSABLE" />
+-
+-                <data
+-                    android:scheme="com.example.sabacontinuidad"
+-                    android:host="auth" />
++                <data android:scheme="com.example.sabacontinuidad" android:host="auth" />
+             </intent-filter>
+         </activity>
+ 
+     </application>
+-</manifest>
+\ No newline at end of file
++</manifest>
+diff --git a/app/src/main/java/com/example/sabacontinuidad/MainActivity.kt b/app/src/main/java/com/example/sabacontinuidad/MainActivity.kt
+index 3bbd700..33218f4 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/MainActivity.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/MainActivity.kt
+@@ -1,6 +1,5 @@
+ package com.example.sabacontinuidad
+ 
+-import android.content.Intent
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+@@ -16,9 +15,7 @@ class MainActivity : ComponentActivity() {
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+-
+         manejarDeeplink(intent)
+-
+         setContent {
+             SabaContinuidadTheme {
+                 AppNavigation()
+@@ -26,18 +23,16 @@ class MainActivity : ComponentActivity() {
+         }
+     }
+ 
+-    override fun onNewIntent(intent: Intent) {
++    override fun onNewIntent(intent: android.content.Intent) {
+         super.onNewIntent(intent)
+         setIntent(intent)
+         manejarDeeplink(intent)
+     }
+ 
+-    private fun manejarDeeplink(intent: Intent) {
++    private fun manejarDeeplink(intent: android.content.Intent) {
+         SupabaseClientProvider.client.handleDeeplinks(
+             intent = intent,
+-            onError = { error ->
+-                authViewModel.reportarErrorLogin(error.message)
+-            }
++            onError = { error -> authViewModel.reportarErrorLogin(error.message) }
+         )
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/example/sabacontinuidad/data/AuthRepository.kt b/app/src/main/java/com/example/sabacontinuidad/data/AuthRepository.kt
+index f40c332..672e509 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/data/AuthRepository.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/data/AuthRepository.kt
+@@ -13,6 +13,7 @@ class AuthRepository {
+ 
+     suspend fun iniciarSesionMicrosoft() {
+         auth.signInWith(Azure) {
++            // Supabase Auth necesita que Microsoft entregue un correo válido.
+             scopes.add("email")
+         }
+     }
+@@ -20,4 +21,4 @@ class AuthRepository {
+     suspend fun cerrarSesion() {
+         auth.signOut()
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/example/sabacontinuidad/data/Incidente.kt b/app/src/main/java/com/example/sabacontinuidad/data/Incidente.kt
+index e2a8bc5..482c052 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/data/Incidente.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/data/Incidente.kt
+@@ -1,10 +1,10 @@
+ package com.example.sabacontinuidad.data
+ 
+ data class Incidente(
+-    val id: Long,
++    val id: String,
+     val equipo: String,
+     val area: String,
+     val problema: String,
+     val descripcion: String,
+-    val fecha: Long
+-)
+\ No newline at end of file
++    val fecha: String
++)
+diff --git a/app/src/main/java/com/example/sabacontinuidad/data/IncidenteRepository.kt b/app/src/main/java/com/example/sabacontinuidad/data/IncidenteRepository.kt
+index 464ae6d..46ba420 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/data/IncidenteRepository.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/data/IncidenteRepository.kt
+@@ -9,38 +9,29 @@ class IncidenteRepository {
+     private val supabase = SupabaseClientProvider.client
+ 
+     suspend fun obtenerIncidentes(): List<Incidente> {
+-        val parkings = supabase
+-            .from("parkings")
++        val parkingsAsignados = supabase.from("parkings")
+             .select()
+             .decodeList<ParkingFila>()
+-
+-        if (parkings.isEmpty()) {
+-            error(
+-                "Tu usuario aún no está asignado a un parking. " +
+-                        "Pide al administrador que te agregue en parking_miembros."
+-            )
++        if (parkingsAsignados.isEmpty()) {
++            error("Tu usuario aún no está asignado a un parking. Pide al administrador que te agregue en parking_miembros.")
+         }
+ 
+-        val filas = supabase
+-            .from("incidentes")
++        val filas = supabase.from("incidentes")
+             .select()
+             .decodeList<IncidenteFila>()
+ 
+         if (filas.isEmpty()) return emptyList()
+ 
+-        val equipos = supabase
+-            .from("equipos")
++        val equipos = supabase.from("equipos")
+             .select()
+             .decodeList<EquipoFila>()
+             .associateBy { it.id }
+ 
+         return filas.map { fila ->
+             val equipo = equipos[fila.equipoId]
+-
+             Incidente(
+                 id = fila.id,
+-                equipo = equipo?.let { "${it.codigo} · ${it.nombre}" }
+-                    ?: fila.equipoId,
++                equipo = equipo?.let { "${it.codigo} · ${it.nombre}" } ?: fila.equipoId,
+                 area = fila.area,
+                 problema = fila.problema,
+                 descripcion = fila.descripcion,
+@@ -51,37 +42,30 @@ class IncidenteRepository {
+ 
+     suspend fun guardar(incidente: IncidenteBorrador) {
+         val usuarioId = supabase.auth.currentUserOrNull()?.id
+-            ?: error("La sesión no está activa. Vuelve a iniciar sesión.")
++            ?: error("La sesión de Supabase no está activa. Vuelve a iniciar sesión.")
+ 
+-        val equiposCoincidentes = supabase
+-            .from("equipos")
++        // RLS devuelve únicamente equipos de los parkings asignados al usuario.
++        val equiposCoincidentes = supabase.from("equipos")
+             .select()
+             .decodeList<EquipoFila>()
+-            .filter {
+-                it.codigo.equals(
+-                    incidente.codigoEquipo.trim(),
+-                    ignoreCase = true
+-                )
+-            }
++            .filter { it.codigo.equals(incidente.codigoEquipo.trim(), ignoreCase = true) }
+ 
+         val equipo = when (equiposCoincidentes.size) {
+             0 -> error("No encontré ese código de equipo en tus parkings asignados.")
+             1 -> equiposCoincidentes.first()
+-            else -> error("Ese código aparece en más de un parking.")
++            else -> error("Ese código aparece en más de un parking. Elige un código único.")
+         }
+ 
+-        supabase
+-            .from("incidentes")
+-            .insert(
+-                IncidenteNuevo(
+-                    parkingId = equipo.parkingId,
+-                    equipoId = equipo.id,
+-                    reportadoPor = usuarioId,
+-                    area = incidente.area,
+-                    problema = incidente.problema,
+-                    descripcion = incidente.descripcion.trim()
+-                )
++        supabase.from("incidentes").insert(
++            IncidenteNuevo(
++                parkingId = equipo.parkingId,
++                equipoId = equipo.id,
++                reportadoPor = usuarioId,
++                area = incidente.area,
++                problema = incidente.problema,
++                descripcion = incidente.descripcion.trim()
+             )
++        )
+     }
+ }
+ 
+@@ -93,40 +77,32 @@ data class IncidenteBorrador(
+ )
+ 
+ @Serializable
+-private data class ParkingFila(
+-    val id: String
+-)
++private data class ParkingFila(val id: String)
+ 
+ @Serializable
+ private data class IncidenteFila(
+     val id: String,
+-    @SerialName("equipo_id")
+-    val equipoId: String,
++    @SerialName("equipo_id") val equipoId: String,
+     val area: String,
+     val problema: String,
+     val descripcion: String,
+-    @SerialName("creado_en")
+-    val creadoEn: String
++    @SerialName("creado_en") val creadoEn: String
+ )
+ 
+ @Serializable
+ private data class EquipoFila(
+     val id: String,
+-    @SerialName("parking_id")
+-    val parkingId: String,
++    @SerialName("parking_id") val parkingId: String,
+     val codigo: String,
+     val nombre: String
+ )
+ 
+ @Serializable
+ private data class IncidenteNuevo(
+-    @SerialName("parking_id")
+-    val parkingId: String,
+-    @SerialName("equipo_id")
+-    val equipoId: String,
+-    @SerialName("reportado_por")
+-    val reportadoPor: String,
++    @SerialName("parking_id") val parkingId: String,
++    @SerialName("equipo_id") val equipoId: String,
++    @SerialName("reportado_por") val reportadoPor: String,
+     val area: String,
+     val problema: String,
+     val descripcion: String
+-)
+\ No newline at end of file
++)
+diff --git a/app/src/main/java/com/example/sabacontinuidad/data/SupabaseClientProvider.kt b/app/src/main/java/com/example/sabacontinuidad/data/SupabaseClientProvider.kt
+index a60161c..8122a7d 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/data/SupabaseClientProvider.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/data/SupabaseClientProvider.kt
+@@ -5,17 +5,11 @@ import io.github.jan.supabase.auth.FlowType
+ import io.github.jan.supabase.createSupabaseClient
+ import io.github.jan.supabase.postgrest.Postgrest
+ 
+-private const val SUPABASE_URL =
+-    "https://jgpskxaixuxkblhfzqbs.supabase.co"
+-
+-private const val SUPABASE_PUBLISHABLE_KEY =
+-    "sb_publishable_xhH2hH97suJNtF2X8Ohykw_f79rK1kr"
+-
+-private const val AUTH_SCHEME =
+-    "com.example.sabacontinuidad"
++private const val SUPABASE_URL = "https://jgpskxaixuxkblhfzqbs.supabase.co"
++private const val SUPABASE_PUBLISHABLE_KEY = "sb_publishable_xhH2hH97suJNtF2X8Ohykw_f79rK1kr"
++private const val AUTH_SCHEME = "com.example.sabacontinuidad"
+ 
+ object SupabaseClientProvider {
+-
+     val client by lazy {
+         createSupabaseClient(
+             supabaseUrl = SUPABASE_URL,
+@@ -26,8 +20,7 @@ object SupabaseClientProvider {
+                 scheme = AUTH_SCHEME
+                 host = "auth"
+             }
+-
+             install(Postgrest)
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/example/sabacontinuidad/navigation/AppNavigation.kt b/app/src/main/java/com/example/sabacontinuidad/navigation/AppNavigation.kt
+index beef213..f3089f5 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/navigation/AppNavigation.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/navigation/AppNavigation.kt
+@@ -1,6 +1,5 @@
+ package com.example.sabacontinuidad.navigation
+ 
+-import androidx.activity.compose.LocalActivity
+ import androidx.compose.animation.fadeIn
+ import androidx.compose.animation.fadeOut
+ import androidx.compose.animation.slideInHorizontally
+@@ -38,10 +37,11 @@ fun AppNavigation(
+     val nav = rememberNavController()
+     val estado by vm.estado.collectAsState()
+     val incidentes by incidenteVm.incidentes.collectAsState()
+-    val activity = LocalActivity.current
++    val errorCarga by incidenteVm.errorCarga.collectAsState()
+ 
+     LaunchedEffect(estado.usuario) {
+         if (estado.usuario != null) {
++            incidenteVm.cargarIncidentes()
+             nav.navigate(Rutas.INICIO) {
+                 popUpTo(Rutas.LOGIN) { inclusive = true }
+             }
+@@ -66,7 +66,7 @@ fun AppNavigation(
+         composable(Rutas.LOGIN) {
+             LoginScreen(
+                 cargando = estado.cargando,
+-                alPresionarMicrosoft = { activity?.let { vm.iniciarSesion(it) } },
++                alPresionarMicrosoft = { vm.iniciarSesion() },
+                 alPresionarAyuda = { nav.navigate(Rutas.AYUDA) }
+             )
+         }
+@@ -75,6 +75,7 @@ fun AppNavigation(
+             InicioScreen(
+                 usuario = estado.usuario ?: "",
+                 incidentes = incidentes,
++                errorCarga = errorCarga,
+                 alReportar = { nav.navigate(Rutas.REPORTE) },
+                 alCerrarSesion = { vm.cerrarSesion() }
+             )
+@@ -104,4 +105,4 @@ fun AppNavigation(
+             }
+         )
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/example/sabacontinuidad/ui/inicio/InicioScreen.kt b/app/src/main/java/com/example/sabacontinuidad/ui/inicio/InicioScreen.kt
+index 2fea8ce..10b5f25 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/ui/inicio/InicioScreen.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/ui/inicio/InicioScreen.kt
+@@ -24,15 +24,13 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.unit.dp
+ import com.example.sabacontinuidad.data.Incidente
+-import java.text.SimpleDateFormat
+-import java.util.Date
+-import java.util.Locale
+ 
+ @OptIn(ExperimentalMaterial3Api::class)
+ @Composable
+ fun InicioScreen(
+     usuario: String,
+     incidentes: List<Incidente>,
++    errorCarga: String?,
+     alReportar: () -> Unit,
+     alCerrarSesion: () -> Unit
+ ) {
+@@ -75,6 +73,21 @@ fun InicioScreen(
+                 }
+             }
+ 
++            if (errorCarga != null) {
++                Card(
++                    modifier = Modifier.fillMaxWidth(),
++                    colors = CardDefaults.cardColors(
++                        containerColor = MaterialTheme.colorScheme.errorContainer
++                    )
++                ) {
++                    Text(
++                        text = errorCarga,
++                        modifier = Modifier.padding(12.dp),
++                        color = MaterialTheme.colorScheme.onErrorContainer
++                    )
++                }
++            }
++
+             Button(
+                 onClick = alReportar,
+                 modifier = Modifier
+@@ -124,8 +137,7 @@ fun InicioScreen(
+ 
+ @Composable
+ private fun TarjetaIncidente(incidente: Incidente, modifier: Modifier = Modifier) {
+-    val fecha = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
+-        .format(Date(incidente.fecha))
++    val fecha = incidente.fecha.replace('T', ' ').take(16)
+ 
+     Card(modifier = modifier.fillMaxWidth()) {
+         Column(
+@@ -141,4 +153,4 @@ private fun TarjetaIncidente(incidente: Incidente, modifier: Modifier = Modifier
+             Text(text = fecha, style = MaterialTheme.typography.labelSmall)
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/example/sabacontinuidad/ui/reporte/ReporteScreen.kt b/app/src/main/java/com/example/sabacontinuidad/ui/reporte/ReporteScreen.kt
+index d252cec..ae34bfd 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/ui/reporte/ReporteScreen.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/ui/reporte/ReporteScreen.kt
+@@ -55,6 +55,7 @@ fun ReporteScreen(
+     alVolver: () -> Unit
+ ) {
+     val form by vm.form.collectAsState()
++    val cargando by vm.cargando.collectAsState()
+     val contexto = LocalContext.current
+ 
+     val dictado = rememberLauncherForActivityResult(
+@@ -109,10 +110,24 @@ fun ReporteScreen(
+                 }
+             }
+ 
++            form.errorServidor?.let { error ->
++                Card(
++                    colors = CardDefaults.cardColors(
++                        containerColor = MaterialTheme.colorScheme.errorContainer
++                    )
++                ) {
++                    Text(
++                        text = error,
++                        modifier = Modifier.padding(12.dp),
++                        color = MaterialTheme.colorScheme.onErrorContainer
++                    )
++                }
++            }
++
+             OutlinedTextField(
+                 value = form.equipo,
+                 onValueChange = vm::onEquipo,
+-                label = { Text("Equipo") },
++                label = { Text("Código del equipo") },
+                 singleLine = true,
+                 modifier = Modifier.fillMaxWidth(),
+                 isError = form.intentoEnviar && form.errorEquipo != null,
+@@ -185,12 +200,13 @@ fun ReporteScreen(
+ 
+             Button(
+                 onClick = { vm.enviar(alGuardar = alVolver) },
++                enabled = !cargando,
+                 modifier = Modifier
+                     .fillMaxWidth()
+                     .height(52.dp),
+                 shape = RoundedCornerShape(10.dp)
+             ) {
+-                Text("Guardar incidente")
++                Text(if (cargando) "Guardando…" else "Guardar incidente")
+             }
+         }
+     }
+@@ -245,4 +261,4 @@ private fun GrupoChips(
+             )
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/example/sabacontinuidad/viewmodel/AuthViewModel.kt b/app/src/main/java/com/example/sabacontinuidad/viewmodel/AuthViewModel.kt
+index 58439fb..b0685d7 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/viewmodel/AuthViewModel.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/viewmodel/AuthViewModel.kt
+@@ -17,7 +17,6 @@ data class AuthUiState(
+ )
+ 
+ class AuthViewModel(application: Application) : AndroidViewModel(application) {
+-
+     private val repositorio = AuthRepository()
+ 
+     private val _estado = MutableStateFlow(AuthUiState())
+@@ -27,25 +26,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
+         viewModelScope.launch {
+             repositorio.estadoSesion.collect { sesion ->
+                 when (sesion) {
+-                    SessionStatus.Initializing -> {
+-                        _estado.value = _estado.value.copy(cargando = true)
+-                    }
+-
++                    SessionStatus.Initializing -> _estado.value = _estado.value.copy(cargando = true)
+                     is SessionStatus.Authenticated -> {
+                         val usuario = sesion.session.user?.email
+                             ?: sesion.session.user?.id
+                             ?: "Usuario Microsoft"
+-
+-                        _estado.value = AuthUiState(
+-                            cargando = false,
+-                            usuario = usuario
+-                        )
++                        _estado.value = AuthUiState(cargando = false, usuario = usuario)
+                     }
+-
+                     is SessionStatus.NotAuthenticated -> {
+                         _estado.value = AuthUiState(cargando = false)
+                     }
+-
+                     is SessionStatus.RefreshFailure -> {
+                         _estado.value = AuthUiState(
+                             cargando = false,
+@@ -59,40 +49,32 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
+ 
+     fun iniciarSesion() {
+         if (_estado.value.cargando) return
+-
+-        _estado.value = _estado.value.copy(
+-            cargando = true,
+-            mensaje = null
+-        )
+-
++        _estado.value = _estado.value.copy(cargando = true, mensaje = null)
+         viewModelScope.launch {
+-            runCatching {
+-                repositorio.iniciarSesionMicrosoft()
+-            }.onFailure { error ->
+-                _estado.value = _estado.value.copy(
+-                    cargando = false,
+-                    mensaje = error.message
+-                        ?: "No se pudo iniciar sesión con Microsoft."
+-                )
+-            }.onSuccess {
+-                // Microsoft abre el navegador; la sesión se actualiza al volver a la app.
+-                if (_estado.value.usuario == null) {
+-                    _estado.value = _estado.value.copy(cargando = false)
++            runCatching { repositorio.iniciarSesionMicrosoft() }
++                .onFailure { error ->
++                    _estado.value = _estado.value.copy(
++                        cargando = false,
++                        mensaje = error.message ?: "No se pudo iniciar sesión con Microsoft."
++                    )
++                }
++                .onSuccess {
++                    // El inicio continúa en el navegador; el deeplink actualizará el estado al volver.
++                    if (_estado.value.usuario == null) {
++                        _estado.value = _estado.value.copy(cargando = false)
++                    }
+                 }
+-            }
+         }
+     }
+ 
+     fun cerrarSesion() {
+         viewModelScope.launch {
+-            runCatching {
+-                repositorio.cerrarSesion()
+-            }.onFailure { error ->
+-                _estado.value = _estado.value.copy(
+-                    mensaje = error.message
+-                        ?: "No se pudo cerrar la sesión."
+-                )
+-            }
++            runCatching { repositorio.cerrarSesion() }
++                .onFailure { error ->
++                    _estado.value = _estado.value.copy(
++                        mensaje = error.message ?: "No se pudo cerrar la sesión."
++                    )
++                }
+         }
+     }
+ 
+@@ -103,8 +85,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
+     fun reportarErrorLogin(mensaje: String?) {
+         _estado.value = _estado.value.copy(
+             cargando = false,
+-            mensaje = mensaje
+-                ?: "Microsoft no pudo completar el inicio de sesión."
++            mensaje = mensaje ?: "Microsoft no pudo completar el inicio de sesión."
+         )
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/java/com/example/sabacontinuidad/viewmodel/IncidenteViewModel.kt b/app/src/main/java/com/example/sabacontinuidad/viewmodel/IncidenteViewModel.kt
+index 2524b94..5a321e5 100644
+--- a/app/src/main/java/com/example/sabacontinuidad/viewmodel/IncidenteViewModel.kt
++++ b/app/src/main/java/com/example/sabacontinuidad/viewmodel/IncidenteViewModel.kt
+@@ -4,12 +4,11 @@ import android.app.Application
+ import androidx.lifecycle.AndroidViewModel
+ import androidx.lifecycle.viewModelScope
+ import com.example.sabacontinuidad.data.Incidente
++import com.example.sabacontinuidad.data.IncidenteBorrador
+ import com.example.sabacontinuidad.data.IncidenteRepository
+ import kotlinx.coroutines.flow.MutableStateFlow
+-import kotlinx.coroutines.flow.SharingStarted
+ import kotlinx.coroutines.flow.StateFlow
+ import kotlinx.coroutines.flow.asStateFlow
+-import kotlinx.coroutines.flow.stateIn
+ import kotlinx.coroutines.flow.update
+ import kotlinx.coroutines.launch
+ 
+@@ -19,12 +18,13 @@ data class ReporteForm(
+     val problema: String = "",
+     val descripcion: String = "",
+     val intentoEnviar: Boolean = false,
+-    val avisoDuplicado: Boolean = false
++    val avisoDuplicado: Boolean = false,
++    val errorServidor: String? = null
+ ) {
+     val errorEquipo: String?
+         get() = when {
+-            equipo.isBlank() -> "Ingresa el equipo"
+-            equipo.trim().length < 3 -> "Mínimo 3 caracteres"
++            equipo.isBlank() -> "Ingresa el código del equipo"
++            equipo.trim().length < 3 -> "El código debe tener al menos 3 caracteres"
+             else -> null
+         }
+ 
+@@ -45,42 +45,66 @@ data class ReporteForm(
+ }
+ 
+ class IncidenteViewModel(application: Application) : AndroidViewModel(application) {
++    private val repositorio = IncidenteRepository()
+ 
+-    private val repositorio = IncidenteRepository(application.applicationContext)
+-
+-    val incidentes: StateFlow<List<Incidente>> = repositorio.incidentes
+-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
++    private val _incidentes = MutableStateFlow<List<Incidente>>(emptyList())
++    val incidentes: StateFlow<List<Incidente>> = _incidentes.asStateFlow()
+ 
+     private val _form = MutableStateFlow(ReporteForm())
+     val form: StateFlow<ReporteForm> = _form.asStateFlow()
+ 
+-    fun onEquipo(texto: String) = _form.update { it.copy(equipo = texto.take(40)) }
+-    fun onArea(valor: String) = _form.update { it.copy(area = valor) }
+-    fun onProblema(valor: String) = _form.update { it.copy(problema = valor) }
+-    fun onDescripcion(texto: String) = _form.update { it.copy(descripcion = texto.take(300)) }
++    private val _cargando = MutableStateFlow(false)
++    val cargando: StateFlow<Boolean> = _cargando.asStateFlow()
++
++    private val _errorCarga = MutableStateFlow<String?>(null)
++    val errorCarga: StateFlow<String?> = _errorCarga.asStateFlow()
++
++    fun onEquipo(texto: String) = _form.update {
++        it.copy(equipo = texto.take(80), errorServidor = null)
++    }
++
++    fun onArea(valor: String) = _form.update { it.copy(area = valor, errorServidor = null) }
++    fun onProblema(valor: String) = _form.update { it.copy(problema = valor, errorServidor = null) }
++    fun onDescripcion(texto: String) = _form.update {
++        it.copy(descripcion = texto.take(300), errorServidor = null)
++    }
+ 
+     fun agregarDictado(texto: String) = _form.update {
+         it.copy(descripcion = "${it.descripcion} $texto".trim().take(300))
+     }
+ 
+-    fun enviar(alGuardar: () -> Unit) {
+-        val f = _form.value
++    fun cargarIncidentes() {
++        viewModelScope.launch {
++            _cargando.value = true
++            runCatching { repositorio.obtenerIncidentes() }
++                .onSuccess {
++                    _incidentes.value = it
++                    _errorCarga.value = null
++                }
++                .onFailure { error ->
++                    _errorCarga.value = error.message ?: "No se pudieron cargar los incidentes."
++                }
++            _cargando.value = false
++        }
++    }
+ 
+-        if (!f.valido) {
++    fun enviar(alGuardar: () -> Unit) {
++        val actual = _form.value
++        if (!actual.valido) {
+             _form.update { it.copy(intentoEnviar = true) }
+             return
+         }
+ 
+-        val hayDuplicado = incidentes.value.any {
+-            it.equipo.equals(f.equipo.trim(), ignoreCase = true) && it.problema == f.problema
++        val duplicado = _incidentes.value.any {
++            it.equipo.startsWith(actual.equipo.trim(), ignoreCase = true) &&
++                it.problema == actual.problema
+         }
+-
+-        if (hayDuplicado) {
++        if (duplicado) {
+             _form.update { it.copy(avisoDuplicado = true) }
+             return
+         }
+ 
+-        guardar(f, alGuardar)
++        guardar(actual, alGuardar)
+     }
+ 
+     fun confirmarDuplicado(alGuardar: () -> Unit) {
+@@ -95,20 +119,33 @@ class IncidenteViewModel(application: Application) : AndroidViewModel(applicatio
+         _form.value = ReporteForm()
+     }
+ 
+-    private fun guardar(f: ReporteForm, alGuardar: () -> Unit) {
++    private fun guardar(formulario: ReporteForm, alGuardar: () -> Unit) {
+         viewModelScope.launch {
+-            repositorio.guardar(
+-                Incidente(
+-                    id = System.currentTimeMillis(),
+-                    equipo = f.equipo.trim(),
+-                    area = f.area,
+-                    problema = f.problema,
+-                    descripcion = f.descripcion.trim(),
+-                    fecha = System.currentTimeMillis()
++            _cargando.value = true
++            runCatching {
++                repositorio.guardar(
++                    IncidenteBorrador(
++                        codigoEquipo = formulario.equipo,
++                        area = formulario.area,
++                        problema = formulario.problema,
++                        descripcion = formulario.descripcion
++                    )
+                 )
+-            )
+-            _form.value = ReporteForm()
+-            alGuardar()
++                repositorio.obtenerIncidentes()
++            }.onSuccess { incidentesActualizados ->
++                _incidentes.value = incidentesActualizados
++                _form.value = ReporteForm()
++                alGuardar()
++            }.onFailure { error ->
++                _form.update {
++                    it.copy(
++                        intentoEnviar = true,
++                        avisoDuplicado = false,
++                        errorServidor = error.message ?: "No se pudo guardar el incidente."
++                    )
++                }
++            }
++            _cargando.value = false
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/src/main/res/raw/msal_config.json b/app/src/main/res/raw/msal_config.json
+deleted file mode 100644
+index 515821f..0000000
+--- a/app/src/main/res/raw/msal_config.json
++++ /dev/null
+@@ -1,16 +0,0 @@
+-{
+-  "client_id": "TU_CLIENT_ID",
+-  "authorization_user_agent": "DEFAULT",
+-  "redirect_uri": "msauth://com.example.sabacontinuidad/TU_HASH_URL_ENCODED",
+-  "broker_redirect_uri_registered": true,
+-  "account_mode": "SINGLE",
+-  "authorities": [
+-    {
+-      "type": "AAD",
+-      "audience": {
+-        "type": "AzureADMyOrg",
+-        "tenant_id": "TU_TENANT_ID"
+-      }
+-    }
+-    ]
+-}
+\ No newline at end of file
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+index 55ba35d..3d48627 100644
+--- a/gradle/libs.versions.toml
++++ b/gradle/libs.versions.toml
+@@ -22,7 +22,6 @@ androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecyc
+ androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
+ androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+ androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+-
+ androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+ androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+ androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+@@ -32,7 +31,6 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
+ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+ androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+ androidx-compose-material3-adaptive-navigation-suite = { group = "androidx.compose.material3", name = "material3-adaptive-navigation-suite" }
+-
+ supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabase" }
+ supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt" }
+ supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
+@@ -41,4 +39,5 @@ ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version
+ [plugins]
+ android-application = { id = "com.android.application", version.ref = "agp" }
+ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+\ No newline at end of file
++kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
++
+diff --git a/gradlew b/gradlew
+old mode 100644
+new mode 100755
