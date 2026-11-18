@@ -20,10 +20,10 @@ import com.example.sabacontinuidad.ui.ayuda.AyudaAccesoScreen
 import com.example.sabacontinuidad.ui.escaner.EscanerQrScreen
 import com.example.sabacontinuidad.ui.inicio.InicioScreen
 import com.example.sabacontinuidad.ui.login.LoginScreen
+import com.example.sabacontinuidad.ui.reporte.ProblemaScreen
 import com.example.sabacontinuidad.ui.reporte.ReporteScreen
-import com.example.sabacontinuidad.ui.reporteguiado.ProblemaScreen
-import com.example.sabacontinuidad.ui.reporteguiado.RevisionReporteScreen
-import com.example.sabacontinuidad.ui.reporteguiado.SeleccionEquipoScreen
+import com.example.sabacontinuidad.ui.reporte.RevisionReporteScreen
+import com.example.sabacontinuidad.ui.reporte.SeleccionEquipoScreen
 import com.example.sabacontinuidad.viewmodel.AuthViewModel
 import com.example.sabacontinuidad.viewmodel.IncidenteViewModel
 
@@ -40,12 +40,11 @@ object Rutas {
 
 @Composable
 fun AppNavigation(
-    authVm: AuthViewModel,
+    authVm: AuthViewModel = viewModel(),
     incidenteVm: IncidenteViewModel = viewModel()
 ) {
     val autenticacion by authVm.estado.collectAsState()
     val formulario by incidenteVm.form.collectAsState()
-
     val usuario = autenticacion.usuario
 
     // Limpia el formulario cuando cambia la sesión.
@@ -107,7 +106,7 @@ fun AppNavigation(
         ) {
             if (usuario == null) {
 
-                // LOGIN
+                // S01: inicio de sesión con Microsoft.
                 composable(Rutas.LOGIN) {
                     LoginScreen(
                         cargando = autenticacion.cargando,
@@ -122,7 +121,7 @@ fun AppNavigation(
                     )
                 }
 
-                // AYUDA DE ACCESO
+                // Ayuda para acceder.
                 composable(Rutas.AYUDA) {
                     AyudaAccesoScreen(
                         alVolver = {
@@ -133,84 +132,71 @@ fun AppNavigation(
 
             } else {
 
-                // INICIO
+                // S02: pantalla de inicio.
                 composable(Rutas.INICIO) {
                     InicioScreen(
                         usuario = usuario,
-
-                        // Pendiente: conectar la lista de incidentes.
                         incidentes = emptyList(),
                         errorCarga = null,
                         aviso = null,
                         alCerrarAviso = {},
-
                         alReportar = {
                             nav.navigate(Rutas.EQUIPO) {
                                 launchSingleTop = true
                             }
                         },
-
                         alCerrarSesion = {
                             authVm.cerrarSesion()
                         }
                     )
                 }
 
-                // PASO 1: SELECCIONAR EQUIPO
+                // S04: seleccionar equipo.
                 composable(Rutas.EQUIPO) {
                     SeleccionEquipoScreen(
                         codigoActual = formulario.equipo,
-
                         alElegirEquipo = { codigo ->
                             incidenteVm.onEquipo(codigo)
                         },
-
                         alContinuar = {
                             nav.navigate(Rutas.PROBLEMA) {
                                 launchSingleTop = true
                             }
                         },
-
                         alVolver = {
                             nav.popBackStack()
                         }
                     )
                 }
 
-                // PASO 2: DESCRIBIR EL PROBLEMA
+                // S05: describir el problema.
                 composable(Rutas.PROBLEMA) {
                     ProblemaScreen(
                         vm = incidenteVm,
-
                         alCambiarEquipo = {
                             nav.popBackStack()
                         },
-
                         alContinuar = {
                             nav.navigate(Rutas.REVISION) {
                                 launchSingleTop = true
                             }
                         },
-
                         alVolver = {
                             nav.popBackStack()
                         }
                     )
                 }
 
-                // PASO 3: REVISAR Y ENVIAR
+                // S06: revisar y enviar el reporte.
                 composable(Rutas.REVISION) {
                     RevisionReporteScreen(
                         vm = incidenteVm,
-
                         alVolver = {
                             nav.popBackStack()
                         },
-
                         alEditar = {
                             nav.popBackStack()
                         },
-
                         alEnviado = {
                             nav.navigate(Rutas.INICIO) {
                                 popUpTo(Rutas.INICIO) {
@@ -219,38 +205,34 @@ fun AppNavigation(
                                 launchSingleTop = true
                             }
                         },
-
                         alLlamarSoporte = {
-                            // Pendiente: conectar el contacto de soporte.
+                            // Pendiente: conectar contacto de soporte.
                         }
                     )
                 }
 
-                // FORMULARIO DE REPORTE ORIGINAL
+                // Formulario de reporte original.
                 composable(Rutas.REPORTE) {
                     ReporteScreen(
                         vm = incidenteVm,
-
                         alEscanear = {
                             nav.navigate(Rutas.ESCANER) {
                                 launchSingleTop = true
                             }
                         },
-
                         alVolver = {
                             nav.popBackStack()
                         }
                     )
                 }
 
-                // ESCÁNER QR
+                // Escáner de códigos QR.
                 composable(Rutas.ESCANER) {
                     EscanerQrScreen(
                         alLeerCodigo = { codigo ->
                             incidenteVm.onEquipo(codigo)
                             nav.popBackStack()
                         },
-
                         alVolver = {
                             nav.popBackStack()
                         }
