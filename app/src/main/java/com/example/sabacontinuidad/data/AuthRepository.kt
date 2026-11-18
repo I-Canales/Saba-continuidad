@@ -6,6 +6,7 @@ import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.flow.StateFlow
 
 class AuthRepository {
+
     private val auth = SupabaseClientProvider.client.auth
 
     val estadoSesion: StateFlow<SessionStatus>
@@ -13,7 +14,6 @@ class AuthRepository {
 
     suspend fun iniciarSesionMicrosoft() {
         auth.signInWith(Azure) {
-            // Supabase Auth necesita que Microsoft entregue un correo válido.
             scopes.add("email")
         }
     }

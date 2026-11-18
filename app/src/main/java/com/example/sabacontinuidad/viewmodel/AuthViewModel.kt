@@ -5,9 +5,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sabacontinuidad.data.AuthRepository
 import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class AuthUiState(
@@ -16,30 +18,51 @@ data class AuthUiState(
     val mensaje: String? = null
 )
 
-class AuthViewModel(application: Application) : AndroidViewModel(application) {
+class AuthViewModel(
+    application: Application
+) : AndroidViewModel(application) {
+
     private val repositorio = AuthRepository()
 
     private val _estado = MutableStateFlow(AuthUiState())
+
     val estado: StateFlow<AuthUiState> = _estado.asStateFlow()
 
     init {
         viewModelScope.launch {
             repositorio.estadoSesion.collect { sesion ->
                 when (sesion) {
-                    SessionStatus.Initializing -> _estado.value = _estado.value.copy(cargando = true)
+                    SessionStatus.Initializing -> {
+                        _estado.update {
+                            it.copy(cargando = true)
+                        }
+                    }
+
                     is SessionStatus.Authenticated -> {
                         val usuario = sesion.session.user?.email
                             ?: sesion.session.user?.id
                             ?: "Usuario Microsoft"
-                        _estado.value = AuthUiState(cargando = false, usuario = usuario)
+
+                        _estado.value = AuthUiState(
+                            cargando = false,
+                            usuario = usuario
+                        )
                     }
+
                     is SessionStatus.NotAuthenticated -> {
-                        _estado.value = AuthUiState(cargando = false)
+                        _estado.update {
+                            it.copy(
+                                cargando = false,
+                                usuario = null
+                            )
+                        }
                     }
+
                     is SessionStatus.RefreshFailure -> {
                         _estado.value = AuthUiState(
                             cargando = false,
-                            mensaje = "La sesión venció. Inicia sesión nuevamente."
+                            mensaje = "No se pudo renovar la sesión. " +
+                                    "Revisa tu conexión e inicia sesión nuevamente."
                         )
                     }
                 }
@@ -49,43 +72,75 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun iniciarSesion() {
         if (_estado.value.cargando) return
-        _estado.value = _estado.value.copy(cargando = true, mensaje = null)
+
+        _estado.update {
+            it.copy(
+                cargando = true,
+                mensaje = null
+            )
+        }
+
         viewModelScope.launch {
-            runCatching { repositorio.iniciarSesionMicrosoft() }
-                .onFailure { error ->
-                    _estado.value = _estado.value.copy(
-                        cargando = false,
-                        mensaje = error.message ?: "No se pudo iniciar sesión con Microsoft."
-                    )
+            try {
+                repositorio.iniciarSesionMicrosoft()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                reportarErrorLogin(
+                    error.message
+                        ?: "No se pudo iniciar sesión con Microsoft."
+                )
+            } finally {
+                _estado.update {
+                    it.copy(cargando = false)
                 }
-                .onSuccess {
-                    // El inicio continúa en el navegador; el deeplink actualizará el estado al volver.
-                    if (_estado.value.usuario == null) {
-                        _estado.value = _estado.value.copy(cargando = false)
-                    }
-                }
+            }
         }
     }
 
     fun cerrarSesion() {
+        if (_estado.value.cargando) return
+
+        _estado.update {
+            it.copy(
+                cargando = true,
+                mensaje = null
+            )
+        }
+
         viewModelScope.launch {
-            runCatching { repositorio.cerrarSesion() }
-                .onFailure { error ->
-                    _estado.value = _estado.value.copy(
-                        mensaje = error.message ?: "No se pudo cerrar la sesión."
+            try {
+                repositorio.cerrarSesion()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                _estado.update {
+                    it.copy(
+                        mensaje = error.message
+                            ?: "No se pudo cerrar la sesión."
                     )
                 }
+            } finally {
+                _estado.update {
+                    it.copy(cargando = false)
+                }
+            }
         }
     }
 
     fun cerrarMensaje() {
-        _estado.value = _estado.value.copy(mensaje = null)
+        _estado.update {
+            it.copy(mensaje = null)
+        }
     }
 
     fun reportarErrorLogin(mensaje: String?) {
-        _estado.value = _estado.value.copy(
-            cargando = false,
-            mensaje = mensaje ?: "Microsoft no pudo completar el inicio de sesión."
-        )
+        _estado.update {
+            it.copy(
+                cargando = false,
+                mensaje = mensaje
+                    ?: "Microsoft no pudo completar el inicio de sesión."
+            )
+        }
     }
 }
