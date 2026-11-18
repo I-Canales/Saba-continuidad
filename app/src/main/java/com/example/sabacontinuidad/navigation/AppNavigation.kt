@@ -21,7 +21,6 @@ import com.example.sabacontinuidad.ui.escaner.EscanerQrScreen
 import com.example.sabacontinuidad.ui.inicio.InicioScreen
 import com.example.sabacontinuidad.ui.login.LoginScreen
 import com.example.sabacontinuidad.ui.reporte.ProblemaScreen
-import com.example.sabacontinuidad.ui.reporte.ReporteScreen
 import com.example.sabacontinuidad.ui.reporte.RevisionReporteScreen
 import com.example.sabacontinuidad.ui.reporte.SeleccionEquipoScreen
 import com.example.sabacontinuidad.viewmodel.AuthViewModel
@@ -34,7 +33,6 @@ object Rutas {
     const val EQUIPO = "equipo"
     const val PROBLEMA = "problema"
     const val REVISION = "revision"
-    const val REPORTE = "reporte"
     const val ESCANER = "escaner"
 }
 
@@ -207,21 +205,6 @@ fun AppNavigation(
                         },
                         alLlamarSoporte = {
                             // Pendiente: conectar contacto de soporte.
-                        }
-                    )
-                }
-
-                // Formulario de reporte original.
-                composable(Rutas.REPORTE) {
-                    ReporteScreen(
-                        vm = incidenteVm,
-                        alEscanear = {
-                            nav.navigate(Rutas.ESCANER) {
-                                launchSingleTop = true
-                            }
-                        },
-                        alVolver = {
-                            nav.popBackStack()
                         }
                     )
                 }
