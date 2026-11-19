@@ -38,7 +38,9 @@ fun InicioScreen(
     alCerrarAviso: () -> Unit,
     alReportar: () -> Unit,
     alCerrarSesion: () -> Unit,
-    alEscanear: () -> Unit = alReportar
+    alEscanear: () -> Unit = alReportar,
+    alVerIncidentes: () -> Unit = {}
+
 ) {
     var dialogo by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -59,7 +61,13 @@ fun InicioScreen(
                     tabs.forEachIndexed { i, (nombre, glifo) ->
                         NavigationBarItem(
                             selected = i == 0,
-                            onClick = { dialogo = if (i == 0) null else nombre },
+                            onClick = {
+                                when (i) {
+                                    0 -> dialogo = null
+                                    1 -> alVerIncidentes()
+                                    else -> dialogo = nombre
+                                }
+                            },
                             icon = { Text(glifo, fontSize = 20.sp) },
                             label = { Text(nombre, fontSize = 11.sp) },
                             colors = NavigationBarItemDefaults.colors(
