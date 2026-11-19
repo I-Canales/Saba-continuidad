@@ -54,7 +54,7 @@ fun InicioScreen(
                         "Inicio" to "🏠",
                         "Incidentes" to "⚠️",
                         "Manuales" to "📖",
-                        "Perfil" to "👤"
+                        "Configuraciones" to "⚙️"
                     )
                     tabs.forEachIndexed { i, (nombre, glifo) ->
                         NavigationBarItem(
