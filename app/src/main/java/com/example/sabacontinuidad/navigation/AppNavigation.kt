@@ -23,6 +23,9 @@ import com.example.sabacontinuidad.ui.login.LoginScreen
 import com.example.sabacontinuidad.ui.reporte.ProblemaScreen
 import com.example.sabacontinuidad.ui.reporte.RevisionReporteScreen
 import com.example.sabacontinuidad.ui.reporte.SeleccionEquipoScreen
+import com.example.sabacontinuidad.ui.incidentes.IncidentDetailScreen
+import com.example.sabacontinuidad.ui.incidentes.SupportRequestScreen
+import com.example.sabacontinuidad.ui.incidentes.RegisterManagementScreen
 import com.example.sabacontinuidad.viewmodel.AuthViewModel
 import com.example.sabacontinuidad.viewmodel.IncidenteViewModel
 
@@ -33,6 +36,9 @@ object Rutas {
     const val EQUIPO = "equipo"
     const val PROBLEMA = "problema"
     const val REVISION = "revision"
+    const val DETALLE_INCIDENTE = "detalle_incidente"
+    const val SOLICITAR_SOPORTE = "solicitar_soporte"
+    const val REGISTRAR_GESTION = "registrar_gestion
     const val ESCANER = "escaner"
 }
 
@@ -208,6 +214,60 @@ fun AppNavigation(
                         }
                     )
                 }
+                
+        // S07 - DETALLE DEL INCIDENTE
+        composable(Rutas.DETALLE_INCIDENTE) {
+            IncidentDetailScreen(
+                onBack = {
+                    nav.popBackStack()
+                },
+                onRequestSupport = {
+                    nav.navigate(Rutas.SOLICITAR_SOPORTE)
+                },
+                onRegisterAction = {
+                    nav.navigate(Rutas.REGISTRAR_GESTION)
+                },
+                onScanQr = {
+                    nav.navigate(Rutas.ESCANER)
+                },
+                onNavSelect = { selected ->
+                    if (selected == 0) {
+                        nav.navigate(Rutas.INICIO) {
+                            launchSingleTop = true
+                        }
+                    }
+                }
+            )
+        }
+
+        // S08 - SOLICITAR SOPORTE
+        composable(Rutas.SOLICITAR_SOPORTE) {
+            SupportRequestScreen(
+                onBack = {
+                    nav.popBackStack()
+                },
+                onOpenIncident = {
+                    nav.popBackStack()
+                },
+                onRegisterManagement = {
+                    nav.navigate(Rutas.REGISTRAR_GESTION)
+                }
+            )
+        }
+
+        // S09 - REGISTRAR GESTIÓN
+        composable(Rutas.REGISTRAR_GESTION) {
+            RegisterManagementScreen(
+                onBack = {
+                    nav.popBackStack()
+                },
+                onSave = { gestion ->
+                    // Pendiente: guardar la gestión
+                    // en Room y Supabase.
+                }
+            )
+        }
+
 
                 // Escáner de códigos QR.
                 composable(Rutas.ESCANER) {
