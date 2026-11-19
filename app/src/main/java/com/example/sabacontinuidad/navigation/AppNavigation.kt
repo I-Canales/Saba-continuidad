@@ -149,6 +149,11 @@ fun AppNavigation(
                                 launchSingleTop = true
                             }
                         },
+                        alVerIncidentes = {
+                            nav.navigate(Rutas.DETALLE_INCIDENTE) {
+                                launchSingleTop = true
+                            }
+                        },
                         alCerrarSesion = {
                             authVm.cerrarSesion()
                         }
