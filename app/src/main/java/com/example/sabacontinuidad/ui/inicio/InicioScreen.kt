@@ -53,7 +53,7 @@ fun InicioScreen(
                     val tabs = listOf(
                         "Inicio" to "🏠",
                         "Incidentes" to "⚠️",
-                        "Manuales" to "📖",
+                        "Resumen" to "📊",
                         "Configuraciones" to "⚙️"
                     )
                     tabs.forEachIndexed { i, (nombre, glifo) ->
