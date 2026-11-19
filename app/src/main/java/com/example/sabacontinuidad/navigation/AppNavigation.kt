@@ -12,20 +12,28 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.sabacontinuidad.ui.ayuda.AyudaAccesoScreen
+import com.example.sabacontinuidad.ui.configuraciones.AparienciaScreen
+import com.example.sabacontinuidad.ui.configuraciones.ModoTema
+import com.example.sabacontinuidad.ui.configuraciones.PerfilScreen
 import com.example.sabacontinuidad.ui.escaner.EscanerQrScreen
+import com.example.sabacontinuidad.ui.incidentes.IncBottomBar
+import com.example.sabacontinuidad.ui.incidentes.IncidentDetailScreen
+import com.example.sabacontinuidad.ui.incidentes.RegisterManagementScreen
+import com.example.sabacontinuidad.ui.incidentes.SupportRequestScreen
 import com.example.sabacontinuidad.ui.inicio.InicioScreen
 import com.example.sabacontinuidad.ui.login.LoginScreen
 import com.example.sabacontinuidad.ui.reporte.ProblemaScreen
 import com.example.sabacontinuidad.ui.reporte.RevisionReporteScreen
 import com.example.sabacontinuidad.ui.reporte.SeleccionEquipoScreen
-import com.example.sabacontinuidad.ui.incidentes.IncidentDetailScreen
-import com.example.sabacontinuidad.ui.incidentes.SupportRequestScreen
-import com.example.sabacontinuidad.ui.incidentes.RegisterManagementScreen
 import com.example.sabacontinuidad.viewmodel.AuthViewModel
 import com.example.sabacontinuidad.viewmodel.IncidenteViewModel
 
@@ -33,17 +41,24 @@ object Rutas {
     const val LOGIN = "login"
     const val INICIO = "inicio"
     const val AYUDA = "ayuda"
+
     const val EQUIPO = "equipo"
     const val PROBLEMA = "problema"
     const val REVISION = "revision"
+    const val ESCANER = "escaner"
+
     const val DETALLE_INCIDENTE = "detalle_incidente"
     const val SOLICITAR_SOPORTE = "solicitar_soporte"
-    const val REGISTRAR_GESTION = "registrar_gestion
-    const val ESCANER = "escaner"
+    const val REGISTRAR_GESTION = "registrar_gestion"
+
+    const val PERFIL = "perfil"
+    const val APARIENCIA = "apariencia"
 }
 
 @Composable
 fun AppNavigation(
+    modo: ModoTema,
+    alElegirModo: (ModoTema) -> Unit,
     authVm: AuthViewModel = viewModel(),
     incidenteVm: IncidenteViewModel = viewModel()
 ) {
@@ -51,92 +66,95 @@ fun AppNavigation(
     val formulario by incidenteVm.form.collectAsState()
     val usuario = autenticacion.usuario
 
-    // Limpia el formulario cuando cambia la sesión.
+    // Las pantallas abiertas reciben la selección actual al cambiar el tema.
+    val modoActual by rememberUpdatedState(modo)
+
     LaunchedEffect(usuario) {
         incidenteVm.limpiar()
     }
 
-    // Muestra los errores de autenticación.
     autenticacion.mensaje?.let { mensaje ->
         AlertDialog(
-            onDismissRequest = {
-                authVm.cerrarMensaje()
-            },
-            title = {
-                Text("Acceso a Saba")
-            },
-            text = {
-                Text(mensaje)
-            },
+            onDismissRequest = { authVm.cerrarMensaje() },
+            title = { Text("Acceso a Saba") },
+            text = { Text(mensaje) },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        authVm.cerrarMensaje()
-                    }
-                ) {
+                TextButton(onClick = { authVm.cerrarMensaje() }) {
                     Text("Aceptar")
                 }
             }
         )
     }
 
-    // Reinicia la navegación al iniciar o cerrar sesión.
+    // Cada sesión tiene su propio historial de navegación.
     key(usuario) {
         val nav = rememberNavController()
+        var mostrarManuales by rememberSaveable { mutableStateOf(false) }
+
+        fun abrir(ruta: String) {
+            nav.navigate(ruta) {
+                launchSingleTop = true
+            }
+        }
+
+        fun abrirPestana(ruta: String) {
+            nav.navigate(ruta) {
+                popUpTo(Rutas.INICIO) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+
+        val volver: () -> Unit = { nav.popBackStack() }
+
+        val navegarBarra: (Int) -> Unit = { indice ->
+            when (indice) {
+                0 -> abrirPestana(Rutas.INICIO)
+                1 -> abrirPestana(Rutas.DETALLE_INCIDENTE)
+                2 -> mostrarManuales = true
+                3 -> abrirPestana(Rutas.PERFIL)
+            }
+        }
+
+        if (mostrarManuales) {
+            AlertDialog(
+                onDismissRequest = { mostrarManuales = false },
+                title = { Text("Manuales") },
+                text = { Text("Los manuales del parking aún están pendientes de incorporar.") },
+                confirmButton = {
+                    TextButton(onClick = { mostrarManuales = false }) {
+                        Text("Cerrar")
+                    }
+                }
+            )
+        }
 
         NavHost(
             navController = nav,
-            startDestination = if (usuario == null) {
-                Rutas.LOGIN
-            } else {
-                Rutas.INICIO
-            },
+            startDestination = if (usuario == null) Rutas.LOGIN else Rutas.INICIO,
             enterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { it / 4 }
-                ) + fadeIn()
+                slideInHorizontally(initialOffsetX = { it / 4 }) + fadeIn()
             },
-            exitTransition = {
-                fadeOut()
-            },
-            popEnterTransition = {
-                fadeIn()
-            },
+            exitTransition = { fadeOut() },
+            popEnterTransition = { fadeIn() },
             popExitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { it / 4 }
-                ) + fadeOut()
+                slideOutHorizontally(targetOffsetX = { it / 4 }) + fadeOut()
             }
         ) {
-            if (usuario == null) {
+            // Disponible antes y después de iniciar sesión.
+            composable(Rutas.AYUDA) {
+                AyudaAccesoScreen(alVolver = volver)
+            }
 
-                // S01: inicio de sesión con Microsoft.
+            if (usuario == null) {
                 composable(Rutas.LOGIN) {
                     LoginScreen(
                         cargando = autenticacion.cargando,
-                        alPresionarMicrosoft = {
-                            authVm.iniciarSesion()
-                        },
-                        alPresionarAyuda = {
-                            nav.navigate(Rutas.AYUDA) {
-                                launchSingleTop = true
-                            }
-                        }
+                        alPresionarMicrosoft = { authVm.iniciarSesion() },
+                        alPresionarAyuda = { abrir(Rutas.AYUDA) }
                     )
                 }
-
-                // Ayuda para acceder.
-                composable(Rutas.AYUDA) {
-                    AyudaAccesoScreen(
-                        alVolver = {
-                            nav.popBackStack()
-                        }
-                    )
-                }
-
             } else {
-
-                // S02: pantalla de inicio.
+                // Inicio
                 composable(Rutas.INICIO) {
                     InicioScreen(
                         usuario = usuario,
@@ -144,146 +162,105 @@ fun AppNavigation(
                         errorCarga = null,
                         aviso = null,
                         alCerrarAviso = {},
-                        alReportar = {
-                            nav.navigate(Rutas.EQUIPO) {
-                                launchSingleTop = true
-                            }
-                        },
-                        alVerIncidentes = {
-                            nav.navigate(Rutas.DETALLE_INCIDENTE) {
-                                launchSingleTop = true
-                            }
-                        },
-                        alCerrarSesion = {
-                            authVm.cerrarSesion()
+                        alReportar = { abrir(Rutas.EQUIPO) },
+                        alCerrarSesion = { authVm.cerrarSesion() },
+                        alEscanear = { abrir(Rutas.ESCANER) },
+                        alVerIncidentes = { abrirPestana(Rutas.DETALLE_INCIDENTE) },
+                        alAbrirConfiguraciones = { abrirPestana(Rutas.PERFIL) }
+                    )
+                }
+
+                // S23 · Perfil
+                composable(Rutas.PERFIL) {
+                    PerfilScreen(
+                        usuario = usuario,
+                        modo = modoActual,
+                        alAbrirApariencia = { abrir(Rutas.APARIENCIA) },
+                        alAbrirAyuda = { abrir(Rutas.AYUDA) },
+                        alCerrarSesion = { authVm.cerrarSesion() },
+                        barraInferior = {
+                            IncBottomBar(selected = 3, onSelect = navegarBarra)
                         }
                     )
                 }
 
-                // S04: seleccionar equipo.
+                // S22 · Apariencia
+                composable(Rutas.APARIENCIA) {
+                    AparienciaScreen(
+                        usuario = usuario,
+                        modo = modoActual,
+                        alElegirModo = alElegirModo,
+                        alVolver = volver,
+                        barraInferior = {
+                            IncBottomBar(selected = 3, onSelect = navegarBarra)
+                        }
+                    )
+                }
+
+                // S04 · Selección de equipo
                 composable(Rutas.EQUIPO) {
                     SeleccionEquipoScreen(
                         codigoActual = formulario.equipo,
-                        alElegirEquipo = { codigo ->
-                            incidenteVm.onEquipo(codigo)
-                        },
-                        alContinuar = {
-                            nav.navigate(Rutas.PROBLEMA) {
-                                launchSingleTop = true
-                            }
-                        },
-                        alVolver = {
-                            nav.popBackStack()
-                        }
+                        alElegirEquipo = { codigo -> incidenteVm.onEquipo(codigo) },
+                        alContinuar = { abrir(Rutas.PROBLEMA) },
+                        alVolver = volver
                     )
                 }
 
-                // S05: describir el problema.
+                // S05 · Descripción del problema
                 composable(Rutas.PROBLEMA) {
                     ProblemaScreen(
                         vm = incidenteVm,
-                        alCambiarEquipo = {
-                            nav.popBackStack()
-                        },
-                        alContinuar = {
-                            nav.navigate(Rutas.REVISION) {
-                                launchSingleTop = true
-                            }
-                        },
-                        alVolver = {
-                            nav.popBackStack()
-                        }
+                        alCambiarEquipo = volver,
+                        alContinuar = { abrir(Rutas.REVISION) },
+                        alVolver = volver
                     )
                 }
 
-                // S06: revisar y enviar el reporte.
+                // S06 · Revisión del reporte
                 composable(Rutas.REVISION) {
                     RevisionReporteScreen(
                         vm = incidenteVm,
-                        alVolver = {
-                            nav.popBackStack()
-                        },
-                        alEditar = {
-                            nav.popBackStack()
-                        },
-                        alEnviado = {
-                            nav.navigate(Rutas.INICIO) {
-                                popUpTo(Rutas.INICIO) {
-                                    inclusive = false
-                                }
-                                launchSingleTop = true
-                            }
-                        },
-                        alLlamarSoporte = {
-                            // Pendiente: conectar contacto de soporte.
-                        }
+                        alVolver = volver,
+                        alEditar = volver,
+                        alEnviado = { abrirPestana(Rutas.INICIO) }
                     )
                 }
-                
-        // S07 - DETALLE DEL INCIDENTE
-        composable(Rutas.DETALLE_INCIDENTE) {
-            IncidentDetailScreen(
-                onBack = {
-                    nav.popBackStack()
-                },
-                onRequestSupport = {
-                    nav.navigate(Rutas.SOLICITAR_SOPORTE)
-                },
-                onRegisterAction = {
-                    nav.navigate(Rutas.REGISTRAR_GESTION)
-                },
-                onScanQr = {
-                    nav.navigate(Rutas.ESCANER)
-                },
-                onNavSelect = { selected ->
-                    if (selected == 0) {
-                        nav.navigate(Rutas.INICIO) {
-                            launchSingleTop = true
-                        }
-                    }
+
+                // S07 · Detalle del incidente
+                composable(Rutas.DETALLE_INCIDENTE) {
+                    IncidentDetailScreen(
+                        onBack = volver,
+                        onRequestSupport = { abrir(Rutas.SOLICITAR_SOPORTE) },
+                        onRegisterAction = { abrir(Rutas.REGISTRAR_GESTION) },
+                        onScanQr = { abrir(Rutas.ESCANER) },
+                        onNavSelect = navegarBarra
+                    )
                 }
-            )
-        }
 
-        // S08 - SOLICITAR SOPORTE
-        composable(Rutas.SOLICITAR_SOPORTE) {
-            SupportRequestScreen(
-                onBack = {
-                    nav.popBackStack()
-                },
-                onOpenIncident = {
-                    nav.popBackStack()
-                },
-                onRegisterManagement = {
-                    nav.navigate(Rutas.REGISTRAR_GESTION)
+                // S08 · Solicitar soporte
+                composable(Rutas.SOLICITAR_SOPORTE) {
+                    SupportRequestScreen(
+                        onBack = volver,
+                        onOpenIncident = volver,
+                        onRegisterManagement = { abrir(Rutas.REGISTRAR_GESTION) }
+                    )
                 }
-            )
-        }
 
-        // S09 - REGISTRAR GESTIÓN
-        composable(Rutas.REGISTRAR_GESTION) {
-            RegisterManagementScreen(
-                onBack = {
-                    nav.popBackStack()
-                },
-                onSave = { gestion ->
-                    // Pendiente: guardar la gestión
-                    // en Room y Supabase.
+                // S09 · Registrar gestión
+                composable(Rutas.REGISTRAR_GESTION) {
+                    RegisterManagementScreen(
+                        onBack = volver
+                    )
                 }
-            )
-        }
 
-
-                // Escáner de códigos QR.
                 composable(Rutas.ESCANER) {
                     EscanerQrScreen(
                         alLeerCodigo = { codigo ->
                             incidenteVm.onEquipo(codigo)
-                            nav.popBackStack()
+                            volver()
                         },
-                        alVolver = {
-                            nav.popBackStack()
-                        }
+                        alVolver = volver
                     )
                 }
             }

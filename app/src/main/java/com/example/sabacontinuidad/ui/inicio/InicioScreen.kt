@@ -13,21 +13,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sabacontinuidad.data.Incidente
-import com.example.sabacontinuidad.ui.theme.BordeSaba
-import com.example.sabacontinuidad.ui.theme.TextoSaba
-import com.example.sabacontinuidad.ui.theme.VerdeSaba
-
-private val Gris = Color(0xFF5E6B65)
-private val ColorNaranja = Color(0xFFB94A0A)
-private val ColorRojo = Color(0xFFD32F2F)
 
 @Composable
 fun InicioScreen(
@@ -39,41 +28,52 @@ fun InicioScreen(
     alReportar: () -> Unit,
     alCerrarSesion: () -> Unit,
     alEscanear: () -> Unit = alReportar,
-    alVerIncidentes: () -> Unit = {}
-
+    alVerIncidentes: () -> Unit,
+    alAbrirConfiguraciones: () -> Unit
 ) {
+    val colores = MaterialTheme.colorScheme
     var dialogo by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(
-        containerColor = Color.White,
-        contentColor = TextoSaba,
+        containerColor = colores.surface,
+        contentColor = colores.onSurface,
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
             Column {
-                HorizontalDivider(color = BordeSaba)
-                NavigationBar(containerColor = Color.White, tonalElevation = 0.dp) {
-                    val tabs = listOf(
+                HorizontalDivider(color = colores.outlineVariant)
+
+                NavigationBar(
+                    containerColor = colores.surface,
+                    tonalElevation = 0.dp
+                ) {
+                    val pestanas = listOf(
                         "Inicio" to "🏠",
                         "Incidentes" to "⚠️",
                         "Resumen" to "📊",
                         "Configuraciones" to "⚙️"
                     )
-                    tabs.forEachIndexed { i, (nombre, glifo) ->
+
+                    pestanas.forEachIndexed { indice, (nombre, icono) ->
                         NavigationBarItem(
-                            selected = i == 0,
+                            selected = indice == 0,
                             onClick = {
-                                when (i) {
+                                when (indice) {
                                     0 -> dialogo = null
                                     1 -> alVerIncidentes()
-                                    else -> dialogo = nombre
+                                    2 -> dialogo = "Resumen"
+                                    3 -> alAbrirConfiguraciones()
                                 }
                             },
-                            icon = { Text(glifo, fontSize = 20.sp) },
-                            label = { Text(nombre, fontSize = 11.sp) },
+                            icon = {
+                                Text(icono, fontSize = 20.sp)
+                            },
+                            label = {
+                                Text(nombre, fontSize = 11.sp)
+                            },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedTextColor = VerdeSaba,
-                                unselectedTextColor = Gris,
-                                indicatorColor = Color(0xFFE3F1EA)
+                                selectedTextColor = colores.primary,
+                                unselectedTextColor = colores.onSurfaceVariant,
+                                indicatorColor = colores.primaryContainer
                             )
                         )
                     }
@@ -90,16 +90,22 @@ fun InicioScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
-                Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Inicio", fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Inicio",
+                    fontSize = 27.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
                 TextButton(onClick = { dialogo = "Notificaciones" }) {
                     Box {
                         Text("🔔", fontSize = 24.sp)
+
                         Box(
-                            Modifier
+                            modifier = Modifier
                                 .size(9.dp)
                                 .align(Alignment.TopEnd)
                                 .background(Color(0xFFFF7A1A), CircleShape)
@@ -109,49 +115,85 @@ fun InicioScreen(
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Hola, Admin", fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Buen turno. Aquí tienes la información más relevante del parking.",
-                    fontSize = 15.sp, lineHeight = 21.sp, color = Gris
+                    text = "Hola, $usuario",
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Buen turno. Aquí tienes la información más relevante del parking.",
+                    fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                    color = colores.onSurfaceVariant
                 )
             }
 
             Tarjeta(onClick = { dialogo = "Seleccionar parking" }) {
                 Row(
-                    Modifier.padding(start = 11.dp, end = 14.dp, top = 9.dp, bottom = 9.dp),
+                    modifier = Modifier.padding(
+                        start = 11.dp,
+                        end = 14.dp,
+                        top = 9.dp,
+                        bottom = 9.dp
+                    ),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(
-                        Modifier.size(34.dp).background(VerdeSaba, RoundedCornerShape(7.dp)),
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(colores.primary, RoundedCornerShape(7.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("P", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "P",
+                            color = colores.onPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                    Text("Demo Centro", Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.Medium)
+
+                    Text(
+                        text = "Demo Centro",
+                        modifier = Modifier.weight(1f),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
                     Text("⌄", fontSize = 20.sp)
                 }
             }
 
+            // Datos de demostración del prototipo.
             Tarjeta(
                 onClick = { dialogo = "Estado del parking" },
-                fondo = Color(0xFFFDEBC8),
-                borde = Color(0xFFF3B95F)
+                fondo = colores.tertiaryContainer,
+                borde = colores.tertiary,
+                colorContenido = colores.onTertiaryContainer
             ) {
-                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(
+                    modifier = Modifier.padding(15.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("⚠️", fontSize = 24.sp)
                         Spacer(Modifier.width(10.dp))
+
                         Text(
-                            buildAnnotatedString {
-                                append("Salidas · ")
-                                withStyle(SpanStyle(color = ColorNaranja)) { append("Servicio degradado") }
-                            },
-                            Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.Bold
+                            text = "Salidas · Servicio degradado",
+                            modifier = Modifier.weight(1f),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        Flecha(TextoSaba)
+
+                        Flecha(colores.onTertiaryContainer)
                     }
-                    Column(Modifier.padding(start = 38.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+
+                    Column(
+                        modifier = Modifier.padding(start = 38.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text("Salida 2 detenida. Salida 1 disponible.", fontSize = 14.sp)
                         Dato("🕒", "Desde 15:50 · hace 1 h 10 min")
                         Dato("🔄", "Actualizado 16:40 · hace 20 min")
@@ -159,69 +201,151 @@ fun InicioScreen(
                 }
             }
 
-            Accion("Reportar un problema", "⚠️", fondo = VerdeSaba, color = Color.White, onClick = alReportar)
-            Accion("Ver estado del parking", "📊") { dialogo = "Estado del parking" }
-            Accion("Registrar mantenimiento", "🔧") { dialogo = "Mantenimiento" }
+            Accion(
+                titulo = "Reportar un problema",
+                icono = "⚠️",
+                fondo = colores.primary,
+                color = colores.onPrimary,
+                borde = null,
+                onClick = alReportar
+            )
+
+            Accion(
+                titulo = "Ver estado del parking",
+                icono = "📊",
+                onClick = { dialogo = "Estado del parking" }
+            )
+
+            Accion(
+                titulo = "Registrar mantenimiento",
+                icono = "🔧",
+                onClick = { dialogo = "Mantenimiento" }
+            )
 
             Tarjeta(onClick = { dialogo = "Pendientes del turno" }) {
                 Row(
-                    Modifier.padding(horizontal = 15.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 15.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("📋", fontSize = 22.sp)
                     Spacer(Modifier.width(12.dp))
+
                     Column(Modifier.weight(1f)) {
-                        Text("Pendientes del turno", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        Text("2 abiertos, incluido 1 por verificar", fontSize = 12.sp, color = Gris)
+                        Text(
+                            text = "Pendientes del turno",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "2 abiertos, incluido 1 por verificar",
+                            fontSize = 12.sp,
+                            color = colores.onSurfaceVariant
+                        )
                     }
-                    Text("Ver resumen", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = VerdeSaba)
-                    Flecha(VerdeSaba)
+
+                    Text(
+                        text = "Ver resumen",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colores.primary
+                    )
+
+                    Flecha(colores.primary)
                 }
             }
 
-            Accion("Escanear QR", "📷", color = VerdeSaba, borde = VerdeSaba, centrado = true, onClick = alEscanear)
             Accion(
-                "Urgencia", "📞",
-                fondo = Color(0xFFFDECEC), color = ColorRojo, borde = Color(0xFFEF5350), centrado = true
-            ) { dialogo = "Urgencia" }
+                titulo = "Escanear QR",
+                icono = "📷",
+                color = colores.primary,
+                borde = colores.primary,
+                centrado = true,
+                onClick = alEscanear
+            )
 
-            errorCarga?.let { Text(it, fontSize = 13.sp, color = ColorRojo) }
-            aviso?.let {
-                Text(it, fontSize = 13.sp, color = Gris)
-                TextButton(onClick = alCerrarAviso) { Text("Entendido", color = VerdeSaba) }
+            Accion(
+                titulo = "Urgencia",
+                icono = "📞",
+                fondo = colores.errorContainer,
+                color = colores.onErrorContainer,
+                borde = colores.error,
+                centrado = true,
+                onClick = { dialogo = "Urgencia" }
+            )
+
+            errorCarga?.let { mensaje ->
+                Text(mensaje, fontSize = 13.sp, color = colores.error)
+            }
+
+            aviso?.let { mensaje ->
+                Text(mensaje, fontSize = 13.sp, color = colores.onSurfaceVariant)
+
+                TextButton(onClick = alCerrarAviso) {
+                    Text("Entendido")
+                }
             }
         }
     }
 
     dialogo?.let { titulo ->
         val mensaje = when (titulo) {
-            "Seleccionar parking" -> "Demo Centro es el parking de esta demostración."
+            "Seleccionar parking" ->
+                "Demo Centro es el parking de esta demostración."
+
             "Estado del parking", "Notificaciones" ->
                 "Ejemplo del prototipo: salida 2 detenida y salida 1 disponible."
-            "Pendientes del turno" -> "Ejemplo del prototipo: 2 incidentes abiertos, 1 por verificar."
-            "Incidentes" ->
-                if (incidentes.isEmpty()) "No hay incidentes cargados."
-                else incidentes.joinToString("\n\n") { "${it.equipo}\n${it.problema}\n${it.descripcion}" }
-            "Mantenimiento" -> "El registro de mantenimiento aún está pendiente de implementar."
-            "Manuales" -> "Los manuales del parking aún están pendientes de incorporar."
-            "Urgencia" -> "Los contactos de soporte y emergencia aún no están configurados."
+
+            "Pendientes del turno" ->
+                "Ejemplo del prototipo: 2 incidentes abiertos, 1 por verificar."
+
+            "Resumen" -> {
+                if (incidentes.isEmpty()) {
+                    "No hay incidentes cargados."
+                } else {
+                    incidentes.joinToString("\n\n") { incidente ->
+                        "${incidente.equipo}\n${incidente.problema}\n${incidente.descripcion}"
+                    }
+                }
+            }
+
+            "Mantenimiento" ->
+                "El registro de mantenimiento aún está pendiente de implementar."
+
+            "Urgencia" ->
+                "Los contactos de soporte y emergencia aún no están configurados."
+
             "Perfil" -> usuario
             else -> ""
         }
+
         AlertDialog(
             onDismissRequest = { dialogo = null },
-            containerColor = Color.White,
-            title = { Text(titulo, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(titulo, fontWeight = FontWeight.Bold)
+            },
             text = {
-                Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                     Text(mensaje, fontSize = 15.sp)
                 }
             },
-            confirmButton = { TextButton(onClick = { dialogo = null }) { Text("Cerrar", color = VerdeSaba) } },
+            confirmButton = {
+                TextButton(onClick = { dialogo = null }) {
+                    Text("Cerrar")
+                }
+            },
             dismissButton = {
                 if (titulo == "Perfil") {
-                    TextButton(onClick = { dialogo = null; alCerrarSesion() }) {
-                        Text("Cerrar sesión", color = ColorRojo)
+                    TextButton(
+                        onClick = {
+                            dialogo = null
+                            alCerrarSesion()
+                        }
+                    ) {
+                        Text("Cerrar sesión", color = colores.error)
                     }
                 }
             }
@@ -230,15 +354,11 @@ fun InicioScreen(
 }
 
 @Composable
-private fun Flecha(color: Color) {
-    Text("›", color = color, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-}
-
-@Composable
 private fun Tarjeta(
     onClick: () -> Unit,
-    fondo: Color = Color.White,
-    borde: Color = BordeSaba,
+    fondo: Color = MaterialTheme.colorScheme.surface,
+    borde: Color = MaterialTheme.colorScheme.outlineVariant,
+    colorContenido: Color = MaterialTheme.colorScheme.onSurface,
     content: @Composable () -> Unit
 ) {
     Surface(
@@ -246,49 +366,74 @@ private fun Tarjeta(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         color = fondo,
+        contentColor = colorContenido,
         border = BorderStroke(1.dp, borde),
         content = content
     )
 }
 
 @Composable
-private fun Dato(glifo: String, texto: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(glifo, fontSize = 13.sp)
-        Text(texto, fontSize = 13.sp)
-    }
-}
-
-@Composable
 private fun Accion(
     titulo: String,
-    glifo: String,
-    fondo: Color = Color.White,
-    color: Color = TextoSaba,
-    borde: Color? = BordeSaba,
+    icono: String,
+    fondo: Color = MaterialTheme.colorScheme.surface,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    borde: Color? = MaterialTheme.colorScheme.outlineVariant,
     centrado: Boolean = false,
     onClick: () -> Unit
 ) {
-    val ancho: Dp = if (centrado) 1.5.dp else 1.dp
+    val anchoBorde = if (centrado) 1.5.dp else 1.dp
+
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         color = fondo,
-        border = if (fondo == VerdeSaba || borde == null) null else BorderStroke(ancho, borde)
+        contentColor = color,
+        border = borde?.let { BorderStroke(anchoBorde, it) }
     ) {
         Row(
-            Modifier.heightIn(min = 50.dp).padding(horizontal = 18.dp, vertical = 12.dp),
+            modifier = Modifier
+                .heightIn(min = 50.dp)
+                .padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = if (centrado) Arrangement.Center else Arrangement.Start
         ) {
-            Text(glifo, fontSize = 20.sp)
+            Text(icono, fontSize = 20.sp)
             Spacer(Modifier.width(12.dp))
-            Text(titulo, color = color, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+
+            Text(
+                text = titulo,
+                color = color,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
             if (!centrado) {
                 Spacer(Modifier.weight(1f))
                 Flecha(color)
             }
         }
+    }
+}
+
+@Composable
+private fun Flecha(color: Color) {
+    Text(
+        text = "›",
+        color = color,
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Bold
+    )
+}
+
+@Composable
+private fun Dato(icono: String, texto: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(icono, fontSize = 13.sp)
+        Text(texto, fontSize = 13.sp)
     }
 }
