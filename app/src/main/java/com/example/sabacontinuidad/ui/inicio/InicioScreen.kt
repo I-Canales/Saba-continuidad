@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -17,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sabacontinuidad.data.Incidente
+import com.example.sabacontinuidad.ui.componentes.BarraNavegacion
 
 @Composable
 fun InicioScreen(
@@ -26,7 +26,6 @@ fun InicioScreen(
     aviso: String?,
     alCerrarAviso: () -> Unit,
     alReportar: () -> Unit,
-    alCerrarSesion: () -> Unit,
     alEscanear: () -> Unit = alReportar,
     alVerIncidentes: () -> Unit,
     alAbrirConfiguraciones: () -> Unit
@@ -34,51 +33,29 @@ fun InicioScreen(
     val colores = MaterialTheme.colorScheme
     var dialogo by rememberSaveable { mutableStateOf<String?>(null) }
 
+    val resumenIncidentes = when {
+        errorCarga != null -> "No se pudieron cargar los incidentes."
+        incidentes.isEmpty() -> "No hay incidentes cargados."
+        incidentes.size == 1 -> "1 incidente cargado."
+        else -> "${incidentes.size} incidentes cargados."
+    }
+
     Scaffold(
         containerColor = colores.surface,
         contentColor = colores.onSurface,
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
-            Column {
-                HorizontalDivider(color = colores.outlineVariant)
-
-                NavigationBar(
-                    containerColor = colores.surface,
-                    tonalElevation = 0.dp
-                ) {
-                    val pestanas = listOf(
-                        "Inicio" to "🏠",
-                        "Incidentes" to "⚠️",
-                        "Resumen" to "📊",
-                        "Configuraciones" to "⚙️"
-                    )
-
-                    pestanas.forEachIndexed { indice, (nombre, icono) ->
-                        NavigationBarItem(
-                            selected = indice == 0,
-                            onClick = {
-                                when (indice) {
-                                    0 -> dialogo = null
-                                    1 -> alVerIncidentes()
-                                    2 -> dialogo = "Resumen"
-                                    3 -> alAbrirConfiguraciones()
-                                }
-                            },
-                            icon = {
-                                Text(icono, fontSize = 20.sp)
-                            },
-                            label = {
-                                Text(nombre, fontSize = 11.sp)
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedTextColor = colores.primary,
-                                unselectedTextColor = colores.onSurfaceVariant,
-                                indicatorColor = colores.primaryContainer
-                            )
-                        )
+            BarraInicioSaba(
+                seleccionada = 0,
+                alSeleccionar = { indice ->
+                    when (indice) {
+                        0 -> dialogo = null
+                        1 -> alVerIncidentes()
+                        2 -> dialogo = "Resumen"
+                        3 -> alAbrirConfiguraciones()
                     }
                 }
-            }
+            )
         }
     ) { espacio ->
         Column(
@@ -101,16 +78,7 @@ fun InicioScreen(
                 )
 
                 TextButton(onClick = { dialogo = "Notificaciones" }) {
-                    Box {
-                        Text("🔔", fontSize = 24.sp)
-
-                        Box(
-                            modifier = Modifier
-                                .size(9.dp)
-                                .align(Alignment.TopEnd)
-                                .background(Color(0xFFFF7A1A), CircleShape)
-                        )
-                    }
+                    Text("🔔", fontSize = 24.sp)
                 }
             }
 
@@ -122,14 +90,14 @@ fun InicioScreen(
                 )
 
                 Text(
-                    text = "Buen turno. Aquí tienes la información más relevante del parking.",
+                    text = "Buen turno. Aquí tienes la información de tu parking.",
                     fontSize = 15.sp,
                     lineHeight = 21.sp,
                     color = colores.onSurfaceVariant
                 )
             }
 
-            Tarjeta(onClick = { dialogo = "Seleccionar parking" }) {
+            TarjetaInicio(onClick = { dialogo = "Seleccionar parking" }) {
                 Row(
                     modifier = Modifier.padding(
                         start = 11.dp,
@@ -143,7 +111,10 @@ fun InicioScreen(
                     Box(
                         modifier = Modifier
                             .size(34.dp)
-                            .background(colores.primary, RoundedCornerShape(7.dp)),
+                            .background(
+                                color = colores.primary,
+                                shape = RoundedCornerShape(7.dp)
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -165,43 +136,7 @@ fun InicioScreen(
                 }
             }
 
-            // Datos de demostración del prototipo.
-            Tarjeta(
-                onClick = { dialogo = "Estado del parking" },
-                fondo = colores.tertiaryContainer,
-                borde = colores.tertiary,
-                colorContenido = colores.onTertiaryContainer
-            ) {
-                Column(
-                    modifier = Modifier.padding(15.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("⚠️", fontSize = 24.sp)
-                        Spacer(Modifier.width(10.dp))
-
-                        Text(
-                            text = "Salidas · Servicio degradado",
-                            modifier = Modifier.weight(1f),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Flecha(colores.onTertiaryContainer)
-                    }
-
-                    Column(
-                        modifier = Modifier.padding(start = 38.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text("Salida 2 detenida. Salida 1 disponible.", fontSize = 14.sp)
-                        Dato("🕒", "Desde 15:50 · hace 1 h 10 min")
-                        Dato("🔄", "Actualizado 16:40 · hace 20 min")
-                    }
-                }
-            }
-
-            Accion(
+            AccionInicio(
                 titulo = "Reportar un problema",
                 icono = "⚠️",
                 fondo = colores.primary,
@@ -210,34 +145,38 @@ fun InicioScreen(
                 onClick = alReportar
             )
 
-            Accion(
+            AccionInicio(
                 titulo = "Ver estado del parking",
                 icono = "📊",
                 onClick = { dialogo = "Estado del parking" }
             )
 
-            Accion(
+            AccionInicio(
                 titulo = "Registrar mantenimiento",
                 icono = "🔧",
                 onClick = { dialogo = "Mantenimiento" }
             )
 
-            Tarjeta(onClick = { dialogo = "Pendientes del turno" }) {
+            TarjetaInicio(onClick = { dialogo = "Resumen" }) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 15.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.padding(
+                        horizontal = 15.dp,
+                        vertical = 10.dp
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text("📋", fontSize = 22.sp)
-                    Spacer(Modifier.width(12.dp))
 
                     Column(Modifier.weight(1f)) {
                         Text(
-                            text = "Pendientes del turno",
+                            text = "Resumen de incidentes",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold
                         )
+
                         Text(
-                            text = "2 abiertos, incluido 1 por verificar",
+                            text = resumenIncidentes,
                             fontSize = 12.sp,
                             color = colores.onSurfaceVariant
                         )
@@ -249,12 +188,10 @@ fun InicioScreen(
                         fontWeight = FontWeight.SemiBold,
                         color = colores.primary
                     )
-
-                    Flecha(colores.primary)
                 }
             }
 
-            Accion(
+            AccionInicio(
                 titulo = "Escanear QR",
                 icono = "📷",
                 color = colores.primary,
@@ -263,7 +200,7 @@ fun InicioScreen(
                 onClick = alEscanear
             )
 
-            Accion(
+            AccionInicio(
                 titulo = "Urgencia",
                 icono = "📞",
                 fondo = colores.errorContainer,
@@ -274,11 +211,19 @@ fun InicioScreen(
             )
 
             errorCarga?.let { mensaje ->
-                Text(mensaje, fontSize = 13.sp, color = colores.error)
+                Text(
+                    text = mensaje,
+                    fontSize = 13.sp,
+                    color = colores.error
+                )
             }
 
             aviso?.let { mensaje ->
-                Text(mensaje, fontSize = 13.sp, color = colores.onSurfaceVariant)
+                Text(
+                    text = mensaje,
+                    fontSize = 13.sp,
+                    color = colores.onSurfaceVariant
+                )
 
                 TextButton(onClick = alCerrarAviso) {
                     Text("Entendido")
@@ -290,31 +235,28 @@ fun InicioScreen(
     dialogo?.let { titulo ->
         val mensaje = when (titulo) {
             "Seleccionar parking" ->
-                "Demo Centro es el parking de esta demostración."
+                "Parking actual: Demo Centro."
 
-            "Estado del parking", "Notificaciones" ->
-                "Ejemplo del prototipo: salida 2 detenida y salida 1 disponible."
+            "Estado del parking" ->
+                "Aún no hay información disponible sobre el estado del parking."
 
-            "Pendientes del turno" ->
-                "Ejemplo del prototipo: 2 incidentes abiertos, 1 por verificar."
+            "Notificaciones" ->
+                "Aún no hay notificaciones disponibles."
 
-            "Resumen" -> {
-                if (incidentes.isEmpty()) {
-                    "No hay incidentes cargados."
-                } else {
-                    incidentes.joinToString("\n\n") { incidente ->
-                        "${incidente.equipo}\n${incidente.problema}\n${incidente.descripcion}"
-                    }
+            "Resumen" -> when {
+                errorCarga != null -> errorCarga
+                incidentes.isEmpty() -> "No hay incidentes cargados."
+                else -> incidentes.joinToString("\n\n") { incidente ->
+                    "${incidente.equipo}\n${incidente.problema}\n${incidente.descripcion}"
                 }
             }
 
             "Mantenimiento" ->
-                "El registro de mantenimiento aún está pendiente de implementar."
+                "El registro de mantenimiento aún no está disponible."
 
             "Urgencia" ->
                 "Los contactos de soporte y emergencia aún no están configurados."
 
-            "Perfil" -> usuario
             else -> ""
         }
 
@@ -338,14 +280,14 @@ fun InicioScreen(
                 }
             },
             dismissButton = {
-                if (titulo == "Perfil") {
+                if (titulo == "Resumen" && incidentes.isEmpty() && errorCarga == null) {
                     TextButton(
                         onClick = {
                             dialogo = null
-                            alCerrarSesion()
+                            alReportar()
                         }
                     ) {
-                        Text("Cerrar sesión", color = colores.error)
+                        Text("Registrar incidente")
                     }
                 }
             }
@@ -353,27 +295,39 @@ fun InicioScreen(
     }
 }
 
+// Inicio y DetalleIncidente pueden llamar a esta función.
+// El diseño de la barra está en ui/componentes/BarraNavegacion.kt.
 @Composable
-private fun Tarjeta(
+fun BarraInicioSaba(
+    seleccionada: Int,
+    alSeleccionar: (Int) -> Unit
+) {
+    BarraNavegacion(
+        seleccionada = seleccionada,
+        alSeleccionar = alSeleccionar
+    )
+}
+
+@Composable
+private fun TarjetaInicio(
     onClick: () -> Unit,
-    fondo: Color = MaterialTheme.colorScheme.surface,
-    borde: Color = MaterialTheme.colorScheme.outlineVariant,
-    colorContenido: Color = MaterialTheme.colorScheme.onSurface,
     content: @Composable () -> Unit
 ) {
+    val colores = MaterialTheme.colorScheme
+
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = fondo,
-        contentColor = colorContenido,
-        border = BorderStroke(1.dp, borde),
+        color = colores.surface,
+        contentColor = colores.onSurface,
+        border = BorderStroke(1.dp, colores.outlineVariant),
         content = content
     )
 }
 
 @Composable
-private fun Accion(
+private fun AccionInicio(
     titulo: String,
     icono: String,
     fondo: Color = MaterialTheme.colorScheme.surface,
@@ -394,46 +348,34 @@ private fun Accion(
     ) {
         Row(
             modifier = Modifier
+                .fillMaxWidth()
                 .heightIn(min = 50.dp)
                 .padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = if (centrado) Arrangement.Center else Arrangement.Start
+            horizontalArrangement = if (centrado) {
+                Arrangement.Center
+            } else {
+                Arrangement.Start
+            }
         ) {
             Text(icono, fontSize = 20.sp)
             Spacer(Modifier.width(12.dp))
 
             Text(
                 text = titulo,
-                color = color,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold
             )
 
             if (!centrado) {
                 Spacer(Modifier.weight(1f))
-                Flecha(color)
+
+                Text(
+                    text = "›",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun Flecha(color: Color) {
-    Text(
-        text = "›",
-        color = color,
-        fontSize = 24.sp,
-        fontWeight = FontWeight.Bold
-    )
-}
-
-@Composable
-private fun Dato(icono: String, texto: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(icono, fontSize = 13.sp)
-        Text(texto, fontSize = 13.sp)
     }
 }

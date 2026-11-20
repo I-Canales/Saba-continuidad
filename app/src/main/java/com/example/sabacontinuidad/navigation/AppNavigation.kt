@@ -163,7 +163,6 @@ fun AppNavigation(
                         aviso = null,
                         alCerrarAviso = {},
                         alReportar = { abrir(Rutas.EQUIPO) },
-                        alCerrarSesion = { authVm.cerrarSesion() },
                         alEscanear = { abrir(Rutas.ESCANER) },
                         alVerIncidentes = { abrirPestana(Rutas.DETALLE_INCIDENTE) },
                         alAbrirConfiguraciones = { abrirPestana(Rutas.PERFIL) }

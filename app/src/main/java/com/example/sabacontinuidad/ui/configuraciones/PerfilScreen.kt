@@ -8,7 +8,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,7 +32,9 @@ fun PerfilScreen(
 ) {
     val colores = MaterialTheme.colorScheme
     val temaActual = if (modo.usaTemaOscuro()) "Oscuro" else "Claro"
-    val iniciales = usuario.substringBefore("@")
+
+    val iniciales = usuario
+        .substringBefore("@")
         .split(" ", ".", "_")
         .filter { it.isNotBlank() }
         .take(2)
@@ -37,6 +42,7 @@ fun PerfilScreen(
 
     Scaffold(
         containerColor = colores.surface,
+        contentColor = colores.onSurface,
         bottomBar = barraInferior
     ) { espacio ->
         Column(
@@ -48,8 +54,16 @@ fun PerfilScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Column {
-                Text("Perfil", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text("Tu cuenta y la aplicación", color = colores.onSurfaceVariant)
+                Text(
+                    text = "Perfil",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = "Tu cuenta y la aplicación",
+                    color = colores.onSurfaceVariant
+                )
             }
 
             Surface(
@@ -71,7 +85,7 @@ fun PerfilScreen(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                iniciales,
+                                text = iniciales,
                                 color = colores.primary,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold
@@ -80,13 +94,24 @@ fun PerfilScreen(
                     }
 
                     Column {
-                        Text(usuario, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Demo Centro", color = colores.onSurfaceVariant)
+                        Text(
+                            text = usuario,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Text(
+                            text = "Demo Centro",
+                            color = colores.onSurfaceVariant
+                        )
                     }
                 }
             }
 
-            Text("Configuración", fontWeight = FontWeight.Bold)
+            Text(
+                text = "Configuración",
+                fontWeight = FontWeight.Bold
+            )
 
             OpcionPerfil(
                 titulo = "Apariencia",
@@ -97,7 +122,7 @@ fun PerfilScreen(
 
             OpcionPerfil(
                 titulo = "Ayuda de acceso",
-                icono = Icons.Outlined.HelpOutline,
+                icono = Icons.AutoMirrored.Outlined.HelpOutline,
                 alPresionar = alAbrirAyuda
             )
 
@@ -105,15 +130,22 @@ fun PerfilScreen(
 
             Button(
                 onClick = alCerrarSesion,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colores.errorContainer,
                     contentColor = colores.onErrorContainer
                 )
             ) {
-                Icon(Icons.Outlined.Logout, contentDescription = null)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.Logout,
+                    contentDescription = null
+                )
+
                 Spacer(Modifier.width(8.dp))
+
                 Text("Cerrar sesión")
             }
         }
@@ -128,41 +160,57 @@ private fun OpcionPerfil(
     alPresionar: () -> Unit
 ) {
     val colores = MaterialTheme.colorScheme
-    val destacada = detalle != null
 
     Surface(
         onClick = alPresionar,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = if (destacada) colores.primaryContainer else colores.surface,
-        border = BorderStroke(
-            1.dp,
-            if (destacada) colores.primary else colores.outlineVariant
-        )
+        color = colores.surface,
+        contentColor = colores.onSurface,
+        border = BorderStroke(1.dp, colores.outlineVariant)
     ) {
         Row(
-            modifier = Modifier.heightIn(min = 70.dp).padding(horizontal = 14.dp),
+            modifier = Modifier
+                .heightIn(min = 70.dp)
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
-                modifier = Modifier.size(40.dp).background(
-                    if (destacada) colores.surface else colores.surfaceVariant,
-                    RoundedCornerShape(8.dp)
-                ),
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = colores.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icono, contentDescription = null, tint = colores.primary)
+                Icon(
+                    imageVector = icono,
+                    contentDescription = null,
+                    tint = colores.primary
+                )
             }
 
             Column(Modifier.weight(1f)) {
-                Text(titulo, fontWeight = FontWeight.Bold)
+                Text(
+                    text = titulo,
+                    fontWeight = FontWeight.Bold
+                )
+
                 if (detalle != null) {
-                    Text(detalle, fontSize = 13.sp, color = colores.onSurfaceVariant)
+                    Text(
+                        text = detalle,
+                        fontSize = 13.sp,
+                        color = colores.onSurfaceVariant
+                    )
                 }
             }
 
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null)
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null
+            )
         }
     }
 }
